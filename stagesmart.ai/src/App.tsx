@@ -3,7 +3,8 @@ import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { Home } from './pages/Home';
 import { Editor } from './pages/Editor';
 import { Dashboard } from './pages/Dashboard';
-import { Home as HomeIcon, LayoutDashboard, Image as ImageIcon } from 'lucide-react';
+import { EngineTest } from './pages/EngineTest';
+import { Home as HomeIcon, LayoutDashboard, Image as ImageIcon, FlaskConical } from 'lucide-react';
 
 export default function App() {
   return (
@@ -24,18 +25,20 @@ export default function App() {
               <Link to="/dashboard" className="hover:text-orange-300 transition-colors flex items-center gap-1">
                 <LayoutDashboard className="w-4 h-4" /> Dashboard
               </Link>
+              <Link to="/test" className="hover:text-orange-300 transition-colors flex items-center gap-1 opacity-60 hover:opacity-100">
+                <FlaskConical className="w-4 h-4" /> Test
+              </Link>
             </nav>
           </div>
         </header>
-
         <main className="flex-1 flex flex-col">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/editor" element={<Editor />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/test" element={<EngineTest />} />
           </Routes>
         </main>
-
         <footer className="bg-slate-900 text-slate-400 py-8 border-t border-slate-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
