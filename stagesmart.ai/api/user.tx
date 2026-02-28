@@ -1,0 +1,14 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+// MVP: cookie-based credits. Real auth/DB in v2.
+export default function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Read credits from cookie, default to 3 free trial credits
+  const raw = req.cookies?.ss_credits;
+  const credits = raw !== undefined ? parseInt(raw, 10) : 3;
+
+  res.json({ id: 'user_demo', credits: isNaN(credits) ? 3 : credits });
+}
