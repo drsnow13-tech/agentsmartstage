@@ -1,9 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 import Replicate from 'replicate';
+import { addWatermark } from './_watermark';
+import { saveGeneration } from './_db';
+import { v4 as uuidv4 } from 'uuid';
 
-// Change to 'gemini' or 'replicate' once you pick a winner
-const ACTIVE_ENGINE = process.env.ACTIVE_ENGINE || 'both';
+const ACTIVE_ENGINE = process.env.ACTIVE_ENGINE || 'gemini';
 
 async function runGemini(image: string, prompt: string): Promise<string> {
   const matches = image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
@@ -11,12 +13,7 @@ async function runGemini(image: string, prompt: string): Promise<string> {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-preview-05-20',
-    contents: {
-      parts: [
-        { inlineData: { data: matches[2], mimeType: matches[1] } },
-        { text: prompt }
-      ]
-    }
+    contents: { parts: [{ inlineData: { data: matches[2], mimeType: matches[1] } }, { text: prompt }] }
   });
   for (const part of response.candidates?.[0]?.content?.parts || []) {
     if ((part as any).inlineData) return `data:image/png;base64,${(part as any).inlineData.data}`;
@@ -44,37 +41,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { image, prompt } = req.body;
+  const { image, prompt, email } = req.body;
   if (!image || !prompt) return res.status(400).json({ error: 'Image and prompt required' });
+  if (!email) return res.status(400).json({ error: 'Email required to generate' });
 
   try {
-    if (ACTIVE_ENGINE === 'gemini') {
-      const generatedImage = await runGemini(image, prompt);
-      return res.json({ success: true, generatedImage, engine: 'gemini' });
-    }
-    if (ACTIVE_ENGINE === 'replicate') {
-      const generatedImage = await runReplicate(image, prompt);
-      return res.json({ success: true, generatedImage, engine: 'replicate' });
-    }
+    // Generate clean image
+    const cleanImage = ACTIVE_ENGINE === 'replicate'
+      ? await runReplicate(image, prompt)
+      : await runGemini(image, prompt);
 
-    // 'both' mode - run in parallel
-    const [geminiResult, replicateResult] = await Promise.allSettled([
-      runGemini(image, prompt),
-      runReplicate(image, prompt)
-    ]);
+    // Add watermark for preview
+    const watermarked = await addWatermark(cleanImage);
 
-    const current = parseInt(req.cookies?.ss_credits ?? '3', 10);
-    res.setHeader('Set-Cookie', `ss_credits=${Math.max(0, current - 1)}; Path=/; Max-Age=2592000; SameSite=Lax`);
+    // Save to DB with 24hr expiry
+    const genId = uuidv4();
+    await saveGeneration(genId, email, watermarked, cleanImage, prompt);
 
     res.json({
       success: true,
-      engine: 'both',
-      gemini: geminiResult.status === 'fulfilled' ? geminiResult.value : null,
-      geminiError: geminiResult.status === 'rejected' ? geminiResult.reason?.message : null,
-      replicate: replicateResult.status === 'fulfilled' ? replicateResult.value : null,
-      replicateError: replicateResult.status === 'rejected' ? replicateResult.reason?.message : null,
-      generatedImage: geminiResult.status === 'fulfilled' ? geminiResult.value :
-                      replicateResult.status === 'fulfilled' ? replicateResult.value : null,
+      generationId: genId,
+      previewImage: watermarked,   // watermarked — shown in UI
+      engine: ACTIVE_ENGINE
     });
   } catch (error: any) {
     console.error('Stage error:', error);
