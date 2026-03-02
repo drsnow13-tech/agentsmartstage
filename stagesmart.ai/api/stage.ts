@@ -35,21 +35,24 @@ async function runReplicate(image: string, prompt: string): Promise<string> {
     { input: { prompt, input_image: image, output_format: 'jpg', safety_tolerance: 5 } }
   ) as any;
 
-  console.log('Replicate output:', JSON.stringify(output));
-
-  // Handle different output formats
+  // Replicate returns a URL object — extract the string
   let imageUrl: string | null = null;
   if (typeof output === 'string') imageUrl = output;
-  else if (Array.isArray(output) && output.length > 0) imageUrl = output[0];
-  else if (output?.url) imageUrl = output.url;
-  else if (output?.output) imageUrl = output.output;
+  else if (output?.href) imageUrl = output.href;
+  else if (Array.isArray(output) && output.length > 0) {
+    const first = output[0];
+    imageUrl = first?.href || first?.toString() || (typeof first === 'string' ? first : null);
+  }
 
-  if (!imageUrl) throw new Error(`No image from Replicate. Output was: ${JSON.stringify(output)}`);
+  if (!imageUrl || !imageUrl.startsWith('http')) {
+    throw new Error(`Invalid URL from Replicate: ${JSON.stringify(output)}`);
+  }
 
   const imgRes = await fetch(imageUrl);
   const buffer = await imgRes.arrayBuffer();
   return `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
-}
+} 
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
