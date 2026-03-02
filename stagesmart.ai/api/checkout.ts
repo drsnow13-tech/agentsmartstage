@@ -31,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       line_items: [{
         price_data: {
           currency: 'usd',
-          product_data: { name: pkg.name, description: 'AI-powered real estate photo enhancement' },
+          product_data: { name: pkg.name, description: 'AI real estate photo enhancement — StageSmart.ai' },
           unit_amount: pkg.amount,
         },
         quantity: 1,
