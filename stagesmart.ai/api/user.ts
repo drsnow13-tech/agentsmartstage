@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getCredits } from './_db';
+import { neon } from '@neondatabase/serverless';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -7,8 +7,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const email = req.query.email as string;
   if (!email) return res.json({ credits: 0 });
   try {
-    const credits = await getCredits(email);
-    res.json({ email, credits });
+    const sql = neon(process.env.DATABASE_URL!);
+    const r = await sql`SELECT credits FROM users WHERE email = ${email.toLowerCase()}`;
+    res.json({ email, credits: (r[0] as any)?.credits ?? 0 });
   } catch {
     res.json({ credits: 0 });
   }
