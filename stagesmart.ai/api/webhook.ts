@@ -15,17 +15,13 @@ async function getRawBody(req: VercelRequest): Promise<Buffer> {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!stripeKey || !webhookSecret) return res.status(400).json({ error: 'Stripe not configured' });
-
-  const stripe = new Stripe(stripeKey);
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   const rawBody = await getRawBody(req);
   const sig = req.headers['stripe-signature'] as string;
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET!);
   } catch (err: any) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
@@ -36,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const credits = parseInt(session.metadata?.credits || '0', 10);
     if (email && credits > 0) {
       await upsertCredits(email, credits);
-      console.log(`Added ${credits} credits to ${email}`);
+      console.log(`✓ Added ${credits} credits to ${email}`);
     }
   }
 
