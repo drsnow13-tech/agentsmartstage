@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 import Replicate from 'replicate';
-import { addWatermark } from './_watermark';
 import { saveGeneration } from './_db';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -43,27 +42,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { image, prompt, email } = req.body;
   if (!image || !prompt) return res.status(400).json({ error: 'Image and prompt required' });
-  if (!email) return res.status(400).json({ error: 'Email required to generate' });
+  if (!email) return res.status(400).json({ error: 'Email required' });
 
   try {
-    // Generate clean image
     const cleanImage = ACTIVE_ENGINE === 'replicate'
       ? await runReplicate(image, prompt)
       : await runGemini(image, prompt);
 
-    // Add watermark for preview
-    const watermarked = await addWatermark(cleanImage);
-
-    // Save to DB with 24hr expiry
     const genId = uuidv4();
-    await saveGeneration(genId, email, watermarked, cleanImage, prompt);
+    await saveGeneration(genId, email, cleanImage, cleanImage, prompt);
 
-    res.json({
-      success: true,
-      generationId: genId,
-      previewImage: watermarked,   // watermarked — shown in UI
-      engine: ACTIVE_ENGINE
-    });
+    res.json({ success: true, generationId: genId, previewImage: cleanImage, engine: ACTIVE_ENGINE });
   } catch (error: any) {
     console.error('Stage error:', error);
     res.status(500).json({ error: error.message || 'Failed to generate image' });
