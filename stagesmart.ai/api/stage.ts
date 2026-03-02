@@ -30,29 +30,41 @@ async function runGemini(image: string, prompt: string): Promise<string> {
 async function runReplicate(image: string, prompt: string): Promise<string> {
   const replicate = new Replicate({ auth: process.env.REPLICATE_API_KEY });
   
-  const output = await replicate.run(
-    'black-forest-labs/flux-kontext-pro',
-    { input: { prompt, input_image: image, output_format: 'jpg', safety_tolerance: 5 } }
-  ) as any;
+  let prediction = await replicate.predictions.create({
+    model: 'black-forest-labs/flux-kontext-pro',
+    input: { prompt, input_image: image, output_format: 'jpg', safety_tolerance: 5 }
+  });
 
-  // Replicate returns a URL object — extract the string
+  // Poll until complete
+  while (prediction.status !== 'succeeded' && prediction.status !== 'failed') {
+    await new Promise(r => setTimeout(r, 2000));
+    prediction = await replicate.predictions.get(prediction.id);
+    console.log('Prediction status:', prediction.status);
+  }
+
+  if (prediction.status === 'failed') {
+    throw new Error(`Replicate prediction failed: ${prediction.error}`);
+  }
+
+  const output = prediction.output;
+  console.log('Prediction output:', JSON.stringify(output));
+
   let imageUrl: string | null = null;
   if (typeof output === 'string') imageUrl = output;
   else if (output?.href) imageUrl = output.href;
   else if (Array.isArray(output) && output.length > 0) {
     const first = output[0];
-    imageUrl = first?.href || first?.toString() || (typeof first === 'string' ? first : null);
+    imageUrl = first?.href || (typeof first === 'string' ? first : null);
   }
 
   if (!imageUrl || !imageUrl.startsWith('http')) {
-    throw new Error(`Invalid URL from Replicate: ${JSON.stringify(output)}`);
+    throw new Error(`No valid URL in output: ${JSON.stringify(output)}`);
   }
 
   const imgRes = await fetch(imageUrl);
   const buffer = await imgRes.arrayBuffer();
   return `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
-} 
-
+}
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
