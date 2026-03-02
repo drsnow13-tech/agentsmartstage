@@ -1,60 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { Wand2, Clock, Download, Shield, ChevronRight } from 'lucide-react';
-
-// Hard-coded before/after demo images
-// Replace these URLs with your actual hosted photos in /public/
-const DEMO_BEFORE = '/demo-before.jpg';
-const DEMO_AFTER = '/demo-after.jpg';
-
-function BeforeAfterSlider({ before, after }: { before: string; after: string }) {
-  const [position, setPosition] = useState(50);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
-
-  const updatePosition = (clientX: number) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    setPosition((x / rect.width) * 100);
-  };
-
-  return (
-    <div
-      ref={containerRef}
-      className="relative w-full aspect-[16/9] overflow-hidden rounded-2xl shadow-2xl cursor-col-resize select-none"
-      onMouseDown={e => { isDragging.current = true; updatePosition(e.clientX); }}
-      onMouseMove={e => { if (isDragging.current) updatePosition(e.clientX); }}
-      onMouseUp={() => { isDragging.current = false; }}
-      onMouseLeave={() => { isDragging.current = false; }}
-      onTouchStart={e => { isDragging.current = true; updatePosition(e.touches[0].clientX); }}
-      onTouchMove={e => { if (isDragging.current) updatePosition(e.touches[0].clientX); }}
-      onTouchEnd={() => { isDragging.current = false; }}
-    >
-      {/* After image (full) */}
-      <img src={after} alt="After AI enhancement" className="absolute inset-0 w-full h-full object-cover" />
-      
-      {/* Before image (clipped) */}
-      <div className="absolute inset-0 overflow-hidden" style={{ width: `${position}%` }}>
-        <img src={before} alt="Before" className="absolute inset-0 w-full h-full object-cover" style={{ width: `${100 / (position / 100)}%`, maxWidth: 'none' }} />
-      </div>
-
-      {/* Divider */}
-      <div className="absolute top-0 bottom-0 w-1 bg-white shadow-lg" style={{ left: `${position}%`, transform: 'translateX(-50%)' }}>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full shadow-xl flex items-center justify-center">
-          <div className="flex gap-1">
-            <ChevronRight className="w-3 h-3 text-slate-700 rotate-180" />
-            <ChevronRight className="w-3 h-3 text-slate-700" />
-          </div>
-        </div>
-      </div>
-
-      {/* Labels */}
-      <div className="absolute top-3 left-3 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-full">BEFORE</div>
-      <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">AFTER AI</div>
-    </div>
-  );
-}
+import { Wand2, Clock, Download, Shield } from 'lucide-react';
 
 export function Home() {
   return (
@@ -81,18 +27,6 @@ export function Home() {
         </div>
       </section>
 
-      {/* Before/After Demo */}
-      <section className="py-16 px-4 bg-white">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-black text-slate-900 mb-2">See the Difference</h2>
-            <p className="text-slate-500">Drag the slider to compare — real listing photo, AI-enhanced in under 30 seconds</p>
-          </div>
-          <BeforeAfterSlider before={DEMO_BEFORE} after={DEMO_AFTER} />
-          <p className="text-center text-sm text-slate-400 mt-4">Virtual Twilight enhancement — $5 per photo batch</p>
-        </div>
-      </section>
-
       {/* Features */}
       <section className="py-16 px-4 bg-slate-50">
         <div className="max-w-4xl mx-auto">
@@ -101,7 +35,7 @@ export function Home() {
             {[
               { icon: '🌅', title: 'Virtual Twilight', desc: 'Golden hour sky and warm glowing windows — proven to get 3x more saves on Zillow' },
               { icon: '🌿', title: 'Green the Grass', desc: 'Lush vibrant lawn year-round. No more brown Texas summers killing your curb appeal' },
-              { icon: '🛋️', title: 'Virtual Staging', desc: 'Fill empty rooms with modern, traditional, or farmhouse furniture instantly' },
+              { icon: '🛋️', title: 'Virtual Staging', desc: 'Fill empty rooms with warm, inviting furniture — living room, bedroom, game room, office and more' },
               { icon: '☀️', title: 'Sky Swap', desc: 'Replace overcast skies with bright blue — every day looks like a perfect day' },
               { icon: '✨', title: 'Declutter & Clean', desc: 'Remove furniture, personal items, and clutter for clean MLS-ready photos' },
               { icon: '💡', title: 'Interior Lights', desc: 'Add warm glowing light through windows for an inviting, lived-in look' },
@@ -156,7 +90,7 @@ export function Home() {
             <div className="flex flex-col items-center gap-2">
               <Download className="w-6 h-6 text-orange-500" />
               <p className="font-bold text-slate-900">Instant Download</p>
-              <p className="text-sm text-slate-500">HD photos ready in under 30 seconds. No waiting, no emails, no back and forth.</p>
+              <p className="text-sm text-slate-500">HD photos ready in under 60 seconds. No waiting, no emails, no back and forth.</p>
             </div>
           </div>
         </div>
