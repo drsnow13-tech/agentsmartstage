@@ -1,136 +1,174 @@
-import React, { useCallback, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useDropzone } from 'react-dropzone';
-import { Upload, Sparkles, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
-import { motion } from 'motion/react';
-import { ImageComparison } from '../components/ImageComparison';
+import React, { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { Wand2, Clock, Download, Shield, ChevronRight } from 'lucide-react';
 
-export function Home() {
-  const navigate = useNavigate();
-  
-  const [demoBefore, setDemoBefore] = useState('/demo-before.jpg');
-  const [demoAfter, setDemoAfter] = useState('/demo-after.jpg');
-  const beforeInputRef = useRef<HTMLInputElement>(null);
-  const afterInputRef = useRef<HTMLInputElement>(null);
+// Hard-coded before/after demo images
+// Replace these URLs with your actual hosted photos in /public/
+const DEMO_BEFORE = '/demo-before.jpg';
+const DEMO_AFTER = '/demo-after.jpg';
 
-  const handleBeforeUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) setDemoBefore(URL.createObjectURL(e.target.files[0]));
+function BeforeAfterSlider({ before, after }: { before: string; after: string }) {
+  const [position, setPosition] = useState(50);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+
+  const updatePosition = (clientX: number) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    setPosition((x / rect.width) * 100);
   };
-
-  const handleAfterUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) setDemoAfter(URL.createObjectURL(e.target.files[0]));
-  };
-
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      // In a real app, we'd pass these files to the editor state via context or router state
-      // For MVP, we'll just navigate to editor and let them upload there if they drop here
-      navigate('/editor');
-    }
-  }, [navigate]);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'image/*': [] },
-    maxFiles: 5
-  } as any);
 
   return (
-    <div className="flex flex-col w-full">
-      {/* Hero Section */}
-      <section className="relative w-full bg-slate-50 pt-20 pb-16 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-100 text-orange-600 text-sm font-bold mb-8 shadow-sm">
-              <Sparkles className="w-4 h-4" />
-              <span>AI Virtual Staging in Seconds</span>
-            </div>
-            <h1 className="text-5xl lg:text-7xl font-extrabold text-slate-900 tracking-tight mb-6 leading-tight">
-              Sell Homes <span className="text-orange-500">Faster</span> & For More.
-            </h1>
-            <p className="text-xl text-slate-600 mb-10 max-w-2xl mx-auto">
-              Transform empty rooms into stunning, MLS-ready homes. Photorealistic staging designed for top-producing real estate agents.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-              <button 
-                onClick={() => navigate('/editor')}
-                className="px-8 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-lg transition-all shadow-xl shadow-slate-900/20 flex items-center gap-2 w-full sm:w-auto justify-center"
-              >
-                Stage a Photo Free <ArrowRight className="w-5 h-5" />
-              </button>
-              <div className="text-sm text-slate-500 font-medium flex items-center gap-4">
-                <span className="flex items-center gap-1"><CheckCircle2 className="w-4 h-4 text-green-500" /> MLS-Ready</span>
-                <span className="flex items-center gap-1"><Clock className="w-4 h-4 text-green-500" /> 10s Turnaround</span>
-              </div>
-            </div>
-          </motion.div>
+    <div
+      ref={containerRef}
+      className="relative w-full aspect-[16/9] overflow-hidden rounded-2xl shadow-2xl cursor-col-resize select-none"
+      onMouseDown={e => { isDragging.current = true; updatePosition(e.clientX); }}
+      onMouseMove={e => { if (isDragging.current) updatePosition(e.clientX); }}
+      onMouseUp={() => { isDragging.current = false; }}
+      onMouseLeave={() => { isDragging.current = false; }}
+      onTouchStart={e => { isDragging.current = true; updatePosition(e.touches[0].clientX); }}
+      onTouchMove={e => { if (isDragging.current) updatePosition(e.touches[0].clientX); }}
+      onTouchEnd={() => { isDragging.current = false; }}
+    >
+      {/* After image (full) */}
+      <img src={after} alt="After AI enhancement" className="absolute inset-0 w-full h-full object-cover" />
+      
+      {/* Before image (clipped) */}
+      <div className="absolute inset-0 overflow-hidden" style={{ width: `${position}%` }}>
+        <img src={before} alt="Before" className="absolute inset-0 w-full h-full object-cover" style={{ width: `${100 / (position / 100)}%`, maxWidth: 'none' }} />
+      </div>
 
-          {/* Big Slider Demo */}
-          <motion.div 
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="relative max-w-5xl mx-auto rounded-2xl overflow-hidden shadow-2xl border border-slate-200 aspect-[16/9] bg-slate-200"
-          >
-             <ImageComparison 
-               beforeImage={demoBefore}
-               afterImage={demoAfter}
-               objectFit="cover"
-             />
-          </motion.div>
+      {/* Divider */}
+      <div className="absolute top-0 bottom-0 w-1 bg-white shadow-lg" style={{ left: `${position}%`, transform: 'translateX(-50%)' }}>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full shadow-xl flex items-center justify-center">
+          <div className="flex gap-1">
+            <ChevronRight className="w-3 h-3 text-slate-700 rotate-180" />
+            <ChevronRight className="w-3 h-3 text-slate-700" />
+          </div>
+        </div>
+      </div>
 
-          {/* Custom Demo Upload Buttons */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.4 }}
-            className="mt-6 flex flex-wrap justify-center gap-4"
-          >
-            <input type="file" accept="image/*" className="hidden" ref={beforeInputRef} onChange={handleBeforeUpload} />
-            <input type="file" accept="image/*" className="hidden" ref={afterInputRef} onChange={handleAfterUpload} />
-            <button 
-              onClick={() => beforeInputRef.current?.click()} 
-              className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium flex items-center gap-2 shadow-sm transition-colors"
-            >
-              <Upload className="w-4 h-4" /> Upload Custom "Before"
-            </button>
-            <button 
-              onClick={() => afterInputRef.current?.click()} 
-              className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium flex items-center gap-2 shadow-sm transition-colors"
-            >
-              <Upload className="w-4 h-4" /> Upload Custom "After"
-            </button>
-          </motion.div>
+      {/* Labels */}
+      <div className="absolute top-3 left-3 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-full">BEFORE</div>
+      <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">AFTER AI</div>
+    </div>
+  );
+}
+
+export function Home() {
+  return (
+    <div className="flex flex-col">
+      {/* Hero */}
+      <section className="bg-gradient-to-br from-[#1E3A8A] to-[#1e2d6b] text-white py-20 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 bg-orange-500/20 border border-orange-500/40 rounded-full px-4 py-1.5 text-orange-300 text-sm font-medium mb-6">
+            <Wand2 className="w-4 h-4" /> AI-Powered Real Estate Photo Enhancement
+          </div>
+          <h1 className="text-4xl md:text-6xl font-black mb-6 leading-tight">
+            Transform Listing Photos<br />
+            <span className="text-orange-400">in Seconds</span>
+          </h1>
+          <p className="text-xl text-blue-200 mb-8 max-w-2xl mx-auto">
+            Virtual twilight, green grass, staging, sky swaps and more. Save $35 per photo vs traditional editing. Download in seconds.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link to="/editor" className="px-8 py-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-lg rounded-xl flex items-center justify-center gap-2 transition-colors">
+              <Wand2 className="w-5 h-5" /> Try It Free
+            </Link>
+          </div>
+          <p className="text-blue-300 text-sm mt-4">No login required · Photos not stored after 24 hours · MLS-ready results</p>
         </div>
       </section>
 
-      {/* Features/How it works */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-slate-900 mb-4">How StageSmart Works</h2>
-            <p className="text-slate-600 max-w-2xl mx-auto">Upload your raw photos and let our AI do the heavy lifting. Perfect for vacant homes or outdated interiors.</p>
+      {/* Before/After Demo */}
+      <section className="py-16 px-4 bg-white">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-black text-slate-900 mb-2">See the Difference</h2>
+            <p className="text-slate-500">Drag the slider to compare — real listing photo, AI-enhanced in under 30 seconds</p>
           </div>
-          
-          <div className="grid md:grid-cols-3 gap-8">
+          <BeforeAfterSlider before={DEMO_BEFORE} after={DEMO_AFTER} />
+          <p className="text-center text-sm text-slate-400 mt-4">Virtual Twilight enhancement — $5 per photo batch</p>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="py-16 px-4 bg-slate-50">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl font-black text-slate-900 text-center mb-12">Everything Agents Need</h2>
+          <div className="grid md:grid-cols-3 gap-6">
             {[
-              { step: '01', title: 'Upload & Auto-Detect', desc: 'Drop your photos. Our AI instantly detects the room type (Living Room, Kitchen, Exterior, etc).' },
-              { step: '02', title: 'Customize Style', desc: 'Choose from Modern, Traditional, Mid-Century, or Farmhouse. Add updates like new paint or counters.' },
-              { step: '03', title: 'Generate & Download', desc: 'Get photorealistic, MLS-ready staged photos in about 10 seconds. Download and list!' }
-            ].map((item, i) => (
-              <div key={i} className="relative p-8 rounded-2xl bg-slate-50 border border-slate-100">
-                <div className="text-5xl font-black text-slate-200 mb-4">{item.step}</div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">{item.title}</h3>
-                <p className="text-slate-600">{item.desc}</p>
+              { icon: '🌅', title: 'Virtual Twilight', desc: 'Golden hour sky and warm glowing windows — proven to get 3x more saves on Zillow' },
+              { icon: '🌿', title: 'Green the Grass', desc: 'Lush vibrant lawn year-round. No more brown Texas summers killing your curb appeal' },
+              { icon: '🛋️', title: 'Virtual Staging', desc: 'Fill empty rooms with modern, traditional, or farmhouse furniture instantly' },
+              { icon: '☀️', title: 'Sky Swap', desc: 'Replace overcast skies with bright blue — every day looks like a perfect day' },
+              { icon: '✨', title: 'Declutter & Clean', desc: 'Remove furniture, personal items, and clutter for clean MLS-ready photos' },
+              { icon: '💡', title: 'Interior Lights', desc: 'Add warm glowing light through windows for an inviting, lived-in look' },
+            ].map(f => (
+              <div key={f.title} className="bg-white rounded-2xl p-6 border border-slate-200">
+                <div className="text-3xl mb-3">{f.icon}</div>
+                <h3 className="font-bold text-slate-900 mb-2">{f.title}</h3>
+                <p className="text-sm text-slate-500">{f.desc}</p>
               </div>
             ))}
           </div>
         </div>
+      </section>
+
+      {/* Pricing */}
+      <section className="py-16 px-4 bg-white">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-3xl font-black text-slate-900 mb-4">Simple Pricing</h2>
+          <p className="text-slate-500 mb-10">One credit = one photo batch. Select as many enhancements as you want per photo — all for one credit.</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: '1 Photo', price: '$5', credits: '1 credit', popular: false },
+              { label: '5 Photos', price: '$20', credits: '5 credits', popular: true },
+              { label: '10 Photos', price: '$30', credits: '10 credits', popular: false },
+              { label: '25 Photos', price: '$50', credits: '25 credits', popular: false },
+            ].map(pkg => (
+              <div key={pkg.label} className={`rounded-2xl p-5 border-2 ${pkg.popular ? 'border-orange-500 bg-orange-50' : 'border-slate-200'}`}>
+                {pkg.popular && <div className="text-xs font-bold text-orange-500 uppercase mb-2">Best Value</div>}
+                <div className="text-2xl font-black text-slate-900">{pkg.price}</div>
+                <div className="font-medium text-slate-700">{pkg.label}</div>
+                <div className="text-xs text-slate-400 mt-1">{pkg.credits}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Trust */}
+      <section className="py-12 px-4 bg-slate-50 border-t border-slate-200">
+        <div className="max-w-3xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-6 text-center">
+            <div className="flex flex-col items-center gap-2">
+              <Clock className="w-6 h-6 text-orange-500" />
+              <p className="font-bold text-slate-900">Photos Not Stored</p>
+              <p className="text-sm text-slate-500">All photos are automatically deleted after 24 hours. Download yours immediately.</p>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <Shield className="w-6 h-6 text-orange-500" />
+              <p className="font-bold text-slate-900">MLS Compliant</p>
+              <p className="text-sm text-slate-500">AI-enhanced disclosure included on every download. Your clients are protected.</p>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <Download className="w-6 h-6 text-orange-500" />
+              <p className="font-bold text-slate-900">Instant Download</p>
+              <p className="text-sm text-slate-500">HD photos ready in under 30 seconds. No waiting, no emails, no back and forth.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="py-16 px-4 bg-[#1E3A8A] text-white text-center">
+        <h2 className="text-3xl font-black mb-4">Ready to Upgrade Your Listings?</h2>
+        <p className="text-blue-200 mb-8">No login required. Upload a photo and see results in seconds.</p>
+        <Link to="/editor" className="inline-flex items-center gap-2 px-8 py-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-lg rounded-xl transition-colors">
+          <Wand2 className="w-5 h-5" /> Start Enhancing Photos
+        </Link>
       </section>
     </div>
   );
