@@ -29,17 +29,27 @@ async function runGemini(image: string, prompt: string): Promise<string> {
 
 async function runReplicate(image: string, prompt: string): Promise<string> {
   const replicate = new Replicate({ auth: process.env.REPLICATE_API_KEY });
+  
   const output = await replicate.run(
     'black-forest-labs/flux-kontext-pro',
     { input: { prompt, input_image: image, output_format: 'jpg', safety_tolerance: 5 } }
   ) as any;
-  const imageUrl = typeof output === 'string' ? output : output?.[0];
-  if (!imageUrl) throw new Error('No image from Replicate');
+
+  console.log('Replicate output:', JSON.stringify(output));
+
+  // Handle different output formats
+  let imageUrl: string | null = null;
+  if (typeof output === 'string') imageUrl = output;
+  else if (Array.isArray(output) && output.length > 0) imageUrl = output[0];
+  else if (output?.url) imageUrl = output.url;
+  else if (output?.output) imageUrl = output.output;
+
+  if (!imageUrl) throw new Error(`No image from Replicate. Output was: ${JSON.stringify(output)}`);
+
   const imgRes = await fetch(imageUrl);
   const buffer = await imgRes.arrayBuffer();
   return `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
 }
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
