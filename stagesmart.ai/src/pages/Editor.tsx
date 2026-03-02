@@ -24,7 +24,7 @@ interface GeneratedResult {
 
 const ROOM_OPTIONS: Record<string, EditOption[]> = {
   Exterior: [
-    { id: 'twilight', label: 'Virtual Twilight', description: 'Golden hour sky, warm glowing windows', emoji: '🌅', prompt: 'Convert to realistic twilight exterior photo, warm glowing windows, dramatic sky gradient from orange to deep blue, professional real estate photography, keep all architecture identical' },
+    { id: 'twilight', label: 'Virtual Twilight', description: 'Golden hour sky, warm glowing windows', emoji: '🌅', prompt: 'Professional real estate twilight photo, bright blue and purple gradient sky, warm golden light glowing from all windows, exterior lights on, well-lit facade, home clearly visible, vibrant colors, NOT dark or moody, MLS listing quality, keep all architecture identical'
     { id: 'grass', label: 'Green the Grass', description: 'Lush vibrant lawn that pops online', emoji: '🌿', prompt: 'Make the lawn lush green and vibrant, healthy thick grass, professional real estate photography, keep everything else identical' },
     { id: 'lights', label: 'Turn On Interior Lights', description: 'Warm inviting glow from inside', emoji: '💡', prompt: 'Add warm glowing light visible through all windows as if lights are on inside, welcoming atmosphere, professional real estate photography, keep architecture identical' },
     { id: 'sky', label: 'Blue Sky Swap', description: 'Replace overcast sky with bright blue', emoji: '☀️', prompt: 'Replace sky with beautiful bright blue sky and white clouds, keep all other elements identical, professional real estate photography' },
