@@ -1,10 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 import Replicate from 'replicate';
-import { saveGeneration } from './_db';
+import { neon } from '@neondatabase/serverless';
 import { v4 as uuidv4 } from 'uuid';
 
 const ACTIVE_ENGINE = process.env.ACTIVE_ENGINE || 'gemini';
+
+async function saveGeneration(id: string, email: string, clean: string, prompt: string) {
+  const sql = neon(process.env.DATABASE_URL!);
+  await sql`INSERT INTO generations (id, email, watermarked_image, clean_image, prompt)
+    VALUES (${id}, ${email.toLowerCase()}, ${clean}, ${clean}, ${prompt})`;
+}
 
 async function runGemini(image: string, prompt: string): Promise<string> {
   const matches = image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
@@ -50,7 +56,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : await runGemini(image, prompt);
 
     const genId = uuidv4();
-    await saveGeneration(genId, email, cleanImage, cleanImage, prompt);
+    try {
+      await saveGeneration(genId, email, cleanImage, prompt);
+    } catch (dbErr) {
+      console.error('DB save failed (non-fatal):', dbErr);
+    }
 
     res.json({ success: true, generationId: genId, previewImage: cleanImage, engine: ACTIVE_ENGINE });
   } catch (error: any) {
