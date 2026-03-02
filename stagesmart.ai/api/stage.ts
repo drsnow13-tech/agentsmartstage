@@ -16,10 +16,11 @@ async function runGemini(image: string, prompt: string): Promise<string> {
   const matches = image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
   if (!matches) throw new Error('Invalid image format');
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-preview-05-20',
-    contents: { parts: [{ inlineData: { data: matches[2], mimeType: matches[1] } }, { text: prompt }] }
-  });
+ const response = await ai.models.generateContent({
+  model: 'gemini-3.1-flash-image-preview',
+  config: { responseModalities: ['image', 'text'] },
+  contents: { parts: [{ inlineData: { data: matches[2], mimeType: matches[1] } }, { text: prompt }] }
+});
   for (const part of response.candidates?.[0]?.content?.parts || []) {
     if ((part as any).inlineData) return `data:image/png;base64,${(part as any).inlineData.data}`;
   }
