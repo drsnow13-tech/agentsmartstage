@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 import Replicate from 'replicate';
 import { neon } from '@neondatabase/serverless';
-import { v4 as uuidv4 } from 'uuid';
+const uuidv4 = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 const ACTIVE_ENGINE = process.env.ACTIVE_ENGINE || 'gemini';
 
