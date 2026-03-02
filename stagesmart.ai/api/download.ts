@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getGeneration, markDownloaded, deductCredit } from './_db';
+import { getGeneration, markDownloaded, deductCredit, getCredits } from './_db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -12,18 +12,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!generationId || !email) return res.status(400).json({ error: 'generationId and email required' });
 
   const gen = await getGeneration(generationId);
-  if (!gen) return res.status(404).json({ error: 'Generation expired or not found. Photos are purged after 24 hours.' });
-  if (gen.email !== email.toLowerCase()) return res.status(403).json({ error: 'Not authorized' });
+  if (!gen) return res.status(404).json({ error: 'Generation expired. Photos are purged after 24 hours.' });
 
-  // Deduct credit
-  const success = await deductCredit(email);
-  if (!success) return res.status(402).json({ error: 'No credits remaining', needsPurchase: true });
+  const credits = await getCredits(email);
+  if (credits < 1) return res.status(402).json({ error: 'No credits', needsPurchase: true });
 
+  await deductCredit(email);
   await markDownloaded(generationId);
 
-  res.json({
-    success: true,
-    cleanImage: gen.clean_image,
-    message: 'Photo available for 24 hours from generation time.'
-  });
+  res.json({ success: true, cleanImage: gen.clean_image });
 }
