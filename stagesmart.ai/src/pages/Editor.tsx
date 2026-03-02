@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+fimport React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, Wand2, Loader2, Download, RotateCcw, Sparkles, AlertCircle, Mail, CheckSquare, Square, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -296,10 +296,6 @@ export function Editor() {
       setActiveResult(newResults[0] || null);
       setStep('result');
     };
-  };
-
-  const handleTryAnother = () => {
-    setStep('options'); setResults([]); setSelectedOptions(new Set()); setError(null); setActiveResult(null);
   };
 
   const handleTryAnother = () => {
