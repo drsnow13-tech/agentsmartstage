@@ -299,10 +299,6 @@ export function Editor() {
   };
 
   const handleTryAnother = () => {
-    setStep('options'); setResults([]); setSelectedOptions(new Set()); setError(null); setActiveResult(null);
-  };
-
-  const handleTryAnother = () => {
     setStep('options'); setResults([]); setSelectedOptions(new Set());
     setError(null); setActiveResult(null);
   };
