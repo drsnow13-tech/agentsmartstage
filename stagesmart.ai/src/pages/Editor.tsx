@@ -6,7 +6,7 @@ import { ImageComparison } from '../components/ImageComparison';
 import { cn } from '../lib/utils';
 
 type RoomType = 'Exterior' | 'Backyard' | 'Rooftop Terrace' | 'Balcony' | 'Living Room' | 'Dining Room' | 'Kitchen' | 'Bedroom' | 'Bathroom' | 'Home Office' | 'Other';
-type Step = 'upload' | 'email' | 'options' | 'generating' | 'result';
+type Step = 'upload' | 'email' | 'otp' | 'options' | 'generating' | 'result';
 
 interface EditOption {
   id: string;
