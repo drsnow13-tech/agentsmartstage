@@ -565,8 +565,7 @@ export function Editor() {
                   <button onClick={handleGenerateAll} disabled={selectedOptions.size === 0 || isAnalyzing}
                     className="w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl flex items-center justify-center gap-2 transition-colors">
                     <Wand2 className="w-5 h-5" />
-                    {selectedOptions.size === 0 ? 'Select enhancements above' : `Generate {selectedOptions.size > 1 ? `${selectedOptions.size} Enhancements` : '1 Enhancement'} — 1 Credit`}
-                  </button>
+{selectedOptions.size === 0 ? 'Select enhancements above' : `Generate ${selectedOptions.size > 1 ? selectedOptions.size + ' Enhancements' : '1 Enhancement'} — 1 Credit`}                  </button>
                 </div>
               </div>
             </motion.div>
