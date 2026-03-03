@@ -197,15 +197,41 @@ export function Editor() {
     return () => clearInterval(interval);
   }, [step]);
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX = 2048;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
+          else { width = Math.round(width * MAX / height); height = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(blob => {
+          if (blob) resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+          else resolve(file);
+        }, 'image/jpeg', 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  };
+
+  const processFile = useCallback(async (file: File) => {
     if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
-    setOriginalImage(previewUrl);
-    setCurrentFile(file);
+    setError(null);
     setSelectedOptions(new Set());
     setResults([]);
-    setError(null);
+    
+    const compressed = await compressImage(file);
+    const previewUrl = URL.createObjectURL(compressed);
+    setOriginalImage(previewUrl);
+    setCurrentFile(compressed);
 
     if (!email) { setStep('email'); return; }
 
@@ -213,7 +239,7 @@ export function Editor() {
     setStep('options');
     try {
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('image', compressed);
       const res = await fetch('/api/analyze', { method: 'POST', body: formData });
       const data = await res.json();
       setRoomType(data.roomType as RoomType);
@@ -221,9 +247,19 @@ export function Editor() {
     finally { setIsAnalyzing(false); }
   }, [email]);
 
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles[0]) processFile(acceptedFiles[0]);
+  }, [processFile]);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop, accept: { 'image/*': [] }, maxFiles: 1
+    onDrop, accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'] }, maxFiles: 1
   } as any);
+
+  const mobileInputRef = React.useRef<HTMLInputElement>(null);
+  const handleMobileFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
 
   const handleEmailSubmit = async () => {
     if (!emailInput.includes('@')) return;
@@ -234,7 +270,7 @@ export function Editor() {
       setCredits(data.credits ?? 0);
     } catch { setCredits(0); }
 
-    if (!originalImage || !currentFile) { setStep('upload'); return; }
+    if (!currentFile) { setStep('upload'); return; }
     setIsAnalyzing(true);
     setStep('options');
     try {
@@ -302,10 +338,26 @@ export function Editor() {
     if (watermarkEnabled) {
       imageToDownload = await addWatermarkToImage(result.image, 'SmartStageAgent.com');
     }
-    const a = document.createElement('a');
-    a.href = imageToDownload;
-    a.download = `smartstageagent-${result.option.id}.jpg`;
-    a.click();
+    // iOS Safari requires opening in new tab for data URLs
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS) {
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(`<img src="${imageToDownload}" style="max-width:100%"/>`); w.document.title = 'SmartStageAgent'; }
+      return;
+    }
+    try {
+      const res = await fetch(imageToDownload);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `smartstageagent-${result.option.id}.jpg`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      const a = document.createElement('a');
+      a.href = imageToDownload; a.download = `smartstageagent-${result.option.id}.jpg`;
+      a.click();
+    }
   };
 
   const handleReset = () => {
@@ -345,8 +397,7 @@ export function Editor() {
   };
 
   const handleTryAnother = () => {
-    setStep('options'); setResults([]); setSelectedOptions(new Set());
-    setError(null); setActiveResult(null);
+    setStep('options'); setResults([]); setSelectedOptions(new Set()); setError(null); setActiveResult(null);
   };
 
   const options = getOptions(roomType);
@@ -357,7 +408,7 @@ export function Editor() {
       <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Sparkles className="w-4 h-4 text-orange-500" />
-          <span>Select multiple enhancements — <strong>1 credit for all</strong></span>
+          <span className="hidden sm:inline">Select multiple enhancements — </span><strong>1 credit for all</strong>
         </div>
         <div className="flex items-center gap-2">
           {email && <span className="text-xs text-slate-400 hidden sm:block">{email}</span>}
@@ -380,26 +431,42 @@ export function Editor() {
           {/* UPLOAD */}
           {step === 'upload' && (
             <motion.div key="upload" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-              <div className="text-center mb-8">
-                <h1 className="text-3xl font-black text-slate-900 mb-2">Upload a Listing Photo</h1>
-                <p className="text-slate-500">AI detects the room type and suggests the right enhancements. Select what you want — 1 credit for all.</p>
+              <div className="text-center mb-6">
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">Upload a Listing Photo</h1>
+                <p className="text-slate-500 text-sm sm:text-base">AI detects the room and suggests enhancements. 1 credit for all selected.</p>
               </div>
-              <div {...getRootProps()} className={cn("border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all", isDragActive ? "border-orange-500 bg-orange-50" : "border-slate-300 hover:border-orange-400 hover:bg-slate-100 bg-white")}>
+
+              {/* Hidden mobile inputs */}
+              <input ref={mobileInputRef} type="file" accept="image/*" className="hidden" onChange={handleMobileFile} />
+
+              {/* Mobile buttons - shown on touch devices */}
+              <div className="flex flex-col gap-3 sm:hidden mb-4">
+                <button onClick={() => { const i = document.createElement('input'); i.type='file'; i.accept='image/*'; i.capture='environment'; i.onchange=(e:any)=>{ if(e.target.files?.[0]) processFile(e.target.files[0]); }; i.click(); }}
+                  className="w-full flex items-center justify-center gap-3 py-5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl text-lg transition-colors shadow-md">
+                  📷 Take a Photo
+                </button>
+                <button onClick={() => { const i = document.createElement('input'); i.type='file'; i.accept='image/*'; i.onchange=(e:any)=>{ if(e.target.files?.[0]) processFile(e.target.files[0]); }; i.click(); }}
+                  className="w-full flex items-center justify-center gap-3 py-5 bg-white border-2 border-slate-300 text-slate-700 font-bold rounded-2xl text-lg transition-colors shadow-sm">
+                  🖼️ Choose from Library
+                </button>
+              </div>
+
+              {/* Desktop dropzone - hidden on mobile */}
+              <div {...getRootProps()} className={cn("hidden sm:flex border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all flex-col items-center gap-4", isDragActive ? "border-orange-500 bg-orange-50" : "border-slate-300 hover:border-orange-400 hover:bg-slate-100 bg-white")}>
                 <input {...getInputProps()} />
-                <div className="flex flex-col items-center gap-4">
-                  <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
-                    <Upload className="w-8 h-8 text-orange-500" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-slate-900 mb-1">{isDragActive ? 'Drop it here' : 'Drag & drop your photo here'}</p>
-                    <p className="text-slate-500 text-sm">or click to browse — JPG, PNG, WEBP up to 10MB</p>
-                  </div>
-                  <div className="flex items-center gap-6 text-xs text-slate-400 mt-2">
-                    <span>🏠 Exteriors</span><span>🛋️ Living Rooms</span><span>🍳 Kitchens</span><span>🛏️ Bedrooms</span>
-                  </div>
+                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+                  <Upload className="w-8 h-8 text-orange-500" />
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-slate-900 mb-1">{isDragActive ? 'Drop it here' : 'Drag & drop your photo here'}</p>
+                  <p className="text-slate-500 text-sm">or click to browse — JPG, PNG, WEBP, HEIC up to 10MB</p>
+                </div>
+                <div className="flex items-center gap-6 text-xs text-slate-400 mt-2">
+                  <span>🏠 Exteriors</span><span>🛋️ Living Rooms</span><span>🍳 Kitchens</span><span>🛏️ Bedrooms</span>
                 </div>
               </div>
-              <p className="text-center text-xs text-slate-400 mt-4">Free to upload. 1 credit charged per generation batch. Photos deleted after 24 hours — download immediately.</p>
+
+              <p className="text-center text-xs text-slate-400 mt-4">Free to upload. 1 credit charged per generation. Photos deleted after 24 hours.</p>
             </motion.div>
           )}
 
@@ -441,9 +508,9 @@ export function Editor() {
           {/* OPTIONS */}
           {step === 'options' && originalImage && (
             <motion.div key="options" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-              <div className="grid md:grid-cols-2 gap-8">
+              <div className="flex flex-col md:grid md:grid-cols-2 gap-6">
                 <div>
-                  <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-slate-200 shadow-sm">
+                  <div className="aspect-video sm:aspect-[4/3] rounded-2xl overflow-hidden bg-slate-200 shadow-sm">
                     <img src={originalImage} alt="Your photo" className="w-full h-full object-cover" />
                   </div>
                   <button onClick={handleReset} className="mt-3 text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1">
@@ -498,7 +565,7 @@ export function Editor() {
                   <button onClick={handleGenerateAll} disabled={selectedOptions.size === 0 || isAnalyzing}
                     className="w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl flex items-center justify-center gap-2 transition-colors">
                     <Wand2 className="w-5 h-5" />
-                    {selectedOptions.size === 0 ? 'Select enhancements above' : `Generate ${selectedOptions.size} Enhancement${selectedOptions.size > 1 ? 's' : ''} — 1 Credit`}
+                    {selectedOptions.size === 0 ? 'Select enhancements above' : `Generate {selectedOptions.size > 1 ? `${selectedOptions.size} Enhancements` : '1 Enhancement'} — 1 Credit`}
                   </button>
                 </div>
               </div>
@@ -538,7 +605,7 @@ export function Editor() {
               </div>
 
               {results.length > 1 && (
-                <div className="flex gap-2 mb-4 flex-wrap justify-center">
+                <div className="flex gap-2 mb-4 flex-wrap justify-center px-1">
                   {results.map(r => (
                     <button key={r.option.id} onClick={() => setActiveResult(r)}
                       className={cn("px-4 py-2 rounded-full text-sm font-bold transition-all",
@@ -551,7 +618,7 @@ export function Editor() {
 
               {activeResult && (
                 <>
-                  <div className="rounded-2xl overflow-hidden shadow-xl border border-slate-200 aspect-[16/9] mb-4 bg-slate-900">
+                  <div className="rounded-2xl overflow-hidden shadow-xl border border-slate-200 aspect-[4/3] sm:aspect-[16/9] mb-4 bg-slate-900">
                     <ImageComparison beforeImage={originalImage} afterImage={activeResult.image} objectFit="contain" />
                   </div>
 
@@ -566,7 +633,7 @@ export function Editor() {
                     </span>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:justify-center sm:flex-wrap">
                     <button onClick={() => handleDownload(activeResult)}
                       className="flex items-center justify-center gap-2 px-6 py-3 bg-[#1E3A8A] hover:bg-blue-900 text-white font-bold rounded-xl transition-colors">
                       <Download className="w-5 h-5" /> Download {activeResult.option.label}
