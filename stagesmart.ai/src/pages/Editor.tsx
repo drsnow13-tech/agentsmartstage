@@ -422,7 +422,7 @@ export function Editor() {
       {/* Photo purge notice */}
       <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-center justify-center gap-2 text-xs text-blue-600">
         <Info className="w-3 h-3 shrink-0" />
-        <span>Your photos are <strong>not stored</strong> — they are automatically deleted after 24 hours. Download immediately after enhancing.</span>
+        <span><strong>Your photos are NOT stored</strong> — automatically deleted after 24 hours. <strong>Download immediately</strong> after enhancing.</span>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -578,8 +578,9 @@ export function Editor() {
               <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Wand2 className="w-10 h-10 text-orange-500 animate-pulse" />
               </div>
-              <h2 className="text-2xl font-black text-slate-900 mb-2">Generating your enhancements...</h2>
-              <p className="text-slate-500 mb-8">Running {selectedOptions.size} enhancement{selectedOptions.size > 1 ? 's' : ''} — please wait</p>
+              <h2 className="text-2xl font-black text-slate-900 mb-2">Real work is happening...</h2>
+              <p className="text-slate-500 mb-1">Running {selectedOptions.size} enhancement{selectedOptions.size > 1 ? 's' : ''} through AI</p>
+              <p className="text-sm font-semibold text-orange-500 mb-8">⏱ Usually takes 20–60 seconds — please don't close this tab</p>
               <div className="max-w-sm mx-auto bg-slate-200 rounded-full h-3 overflow-hidden mb-3">
                 <motion.div className="h-full bg-orange-500 rounded-full" initial={{ width: '0%' }} animate={{ width: `${generatingProgress}%` }} transition={{ duration: 0.5 }} />
               </div>
@@ -590,7 +591,7 @@ export function Editor() {
                   <p className="text-sm font-medium text-blue-700">💡 {TIPS[currentTip]}</p>
                 </motion.div>
               </AnimatePresence>
-              <p className="text-xs text-slate-400 mt-6">⚠️ Download your photos when ready — they are deleted after 24 hours</p>
+              <p className="text-xs font-semibold text-orange-400 mt-6">⚠️ Photos are NOT stored — download immediately when ready or they will be deleted after 24 hours</p>
             </motion.div>
           )}
 
@@ -649,7 +650,7 @@ export function Editor() {
                     </button>
                   </div>
                   <p className="text-center text-xs text-slate-400 mt-4">
-                    ⚠️ Photos deleted after 24 hours — download now. AI-enhanced — disclose as required by your MLS.
+                    ⚠️ Photos NOT stored — deleted after 24 hours. Download now. AI-enhanced — disclose per your MLS.
                   </p>
                   <div className="mt-3 text-center">
                     <a href="mailto:darren@smartstageagent.com?subject=Photo Enhancement Issue" className="text-xs text-slate-400 hover:text-orange-500 underline transition-colors">
