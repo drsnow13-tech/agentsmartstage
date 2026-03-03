@@ -20,7 +20,7 @@ export function Home() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/editor" className="px-8 py-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-lg rounded-xl flex items-center justify-center gap-2 transition-colors">
-              <Wand2 className="w-5 h-5" /> Try It Free
+              <Wand2 className="w-5 h-5" /> Start Editing
             </Link>
           </div>
           <p className="text-blue-300 text-sm mt-4">No login required · Photos not stored after 24 hours · MLS-ready results</p>
