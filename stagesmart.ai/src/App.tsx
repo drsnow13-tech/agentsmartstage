@@ -10,8 +10,9 @@ function Nav() {
   return (
     <header className="bg-[#1E3A8A] text-white sticky top-0 z-50 shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <Link to="/">
+        <Link to="/" className="flex items-center gap-2 font-bold text-xl tracking-tight">
           <img src="/234172861.png" alt="SmartStageAgent.com" className="h-10 w-auto" />
+          SmartStageAgent<span className="text-orange-400">.com</span>
         </Link>
         <nav className="flex items-center gap-6 text-sm font-medium">
           <Link to="/" className={`hover:text-orange-300 transition-colors ${location.pathname === '/' ? 'text-orange-300' : ''}`}>
