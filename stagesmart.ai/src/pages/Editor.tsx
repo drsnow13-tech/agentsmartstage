@@ -187,6 +187,20 @@ export function Editor() {
   const [generatingProgress, setGeneratingProgress] = useState(0);
   const [currentTip, setCurrentTip] = useState(0);
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
+  const [otpInput, setOtpInput] = useState('');
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+
+  // Check for existing verified session on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('ssa_email');
+    if (saved) {
+      setEmail(saved);
+      fetch('/api/user?email=' + encodeURIComponent(saved))
+        .then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
+    }
+  }, []);
 
   // Rotate tips during generation
   useEffect(() => {
