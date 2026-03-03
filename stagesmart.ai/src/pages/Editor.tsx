@@ -276,7 +276,6 @@ export function Editor() {
   };
 
   const handleEmailSubmit = async () => {
- const handleEmailSubmit = async () => {
     if (!emailInput.includes('@')) return;
     setOtpSending(true);
     setOtpError(null);
