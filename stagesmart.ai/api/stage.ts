@@ -10,7 +10,7 @@ async function runGemini(image: string, prompt: string): Promise<string> {
   if (!matches) throw new Error('Invalid image format');
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-preview-05-20',
+    model: model: 'gemini-3.1-flash-image-preview',
     contents: {
       parts: [
         { inlineData: { data: matches[2], mimeType: matches[1] } },
