@@ -1,26 +1,23 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { neon } from '@neondatabase/serverless';
 import { GoogleGenAI } from '@google/genai';
 import Replicate from 'replicate';
-import { neon } from '@neondatabase/serverless';
-const uuidv4 = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-const ACTIVE_ENGINE = process.env.ACTIVE_ENGINE || 'gemini';
-
-async function saveGeneration(id: string, email: string, clean: string, prompt: string) {
-  const sql = neon(process.env.DATABASE_URL!);
-  await sql`INSERT INTO generations (id, email, watermarked_image, clean_image, prompt)
-    VALUES (${id}, ${email.toLowerCase()}, ${clean}, ${clean}, ${prompt})`;
-}
+const ACTIVE_ENGINE = process.env.ACTIVE_ENGINE || 'replicate';
 
 async function runGemini(image: string, prompt: string): Promise<string> {
   const matches = image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
   if (!matches) throw new Error('Invalid image format');
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
- const response = await ai.models.generateContent({
-  model: 'gemini-3.1-flash-image-preview',
-  config: { responseModalities: ['image', 'text'] },
-  contents: { parts: [{ inlineData: { data: matches[2], mimeType: matches[1] } }, { text: prompt }] }
-});
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-preview-05-20',
+    contents: {
+      parts: [
+        { inlineData: { data: matches[2], mimeType: matches[1] } },
+        { text: prompt }
+      ]
+    }
+  });
   for (const part of response.candidates?.[0]?.content?.parts || []) {
     if ((part as any).inlineData) return `data:image/png;base64,${(part as any).inlineData.data}`;
   }
@@ -29,42 +26,17 @@ async function runGemini(image: string, prompt: string): Promise<string> {
 
 async function runReplicate(image: string, prompt: string): Promise<string> {
   const replicate = new Replicate({ auth: process.env.REPLICATE_API_KEY });
-  
-  let prediction = await replicate.predictions.create({
-    model: 'black-forest-labs/flux-kontext-pro',
-    input: { prompt, input_image: image, output_format: 'jpg', safety_tolerance: 5 }
-  });
-
-  // Poll until complete
-  while (prediction.status !== 'succeeded' && prediction.status !== 'failed') {
-    await new Promise(r => setTimeout(r, 2000));
-    prediction = await replicate.predictions.get(prediction.id);
-    console.log('Prediction status:', prediction.status);
-  }
-
-  if (prediction.status === 'failed') {
-    throw new Error(`Replicate prediction failed: ${prediction.error}`);
-  }
-
-  const output = prediction.output;
-  console.log('Prediction output:', JSON.stringify(output));
-
-  let imageUrl: string | null = null;
-  if (typeof output === 'string') imageUrl = output;
-  else if (output?.href) imageUrl = output.href;
-  else if (Array.isArray(output) && output.length > 0) {
-    const first = output[0];
-    imageUrl = first?.href || (typeof first === 'string' ? first : null);
-  }
-
-  if (!imageUrl || !imageUrl.startsWith('http')) {
-    throw new Error(`No valid URL in output: ${JSON.stringify(output)}`);
-  }
-
+  const output = await replicate.run(
+    'black-forest-labs/flux-kontext-pro',
+    { input: { prompt, input_image: image, output_format: 'jpg', safety_tolerance: 5 } }
+  ) as any;
+  const imageUrl = typeof output === 'string' ? output : output?.[0];
+  if (!imageUrl) throw new Error('No image from Replicate');
   const imgRes = await fetch(imageUrl);
   const buffer = await imgRes.arrayBuffer();
   return `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
 }
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -72,23 +44,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { image, prompt, email } = req.body;
+  const { image, prompt, email, isRetry } = req.body;
   if (!image || !prompt) return res.status(400).json({ error: 'Image and prompt required' });
   if (!email) return res.status(400).json({ error: 'Email required' });
 
-  try {
-    const cleanImage = ACTIVE_ENGINE === 'replicate'
-      ? await runReplicate(image, prompt)
-      : await runGemini(image, prompt);
+  const emailLower = email.toLowerCase().trim();
 
-    const genId = uuidv4();
+  // Check and deduct credits server-side (skip deduction for retries)
+  if (!isRetry) {
     try {
-      await saveGeneration(genId, email, cleanImage, prompt);
-    } catch (dbErr) {
-      console.error('DB save failed (non-fatal):', dbErr);
+      const sql = neon(process.env.DATABASE_URL!);
+      const rows = await sql`SELECT credits FROM users WHERE email = ${emailLower}`;
+      const credits = rows.length > 0 ? rows[0].credits : 0;
+
+      if (credits < 1) {
+        return res.status(402).json({ error: 'Insufficient credits', credits: 0 });
+      }
+
+      // Deduct 1 credit atomically — only deduct on the FIRST item in a batch
+      // The client sends isFirstInBatch to signal this
+      if (req.body.isFirstInBatch) {
+        await sql`UPDATE users SET credits = credits - 1 WHERE email = ${emailLower} AND credits > 0`;
+      }
+    } catch (dbError) {
+      console.error('Credit check error:', dbError);
+      return res.status(500).json({ error: 'Failed to verify credits' });
+    }
+  }
+
+  try {
+    let generatedImage: string;
+
+    if (ACTIVE_ENGINE === 'gemini') {
+      generatedImage = await runGemini(image, prompt);
+      return res.json({ success: true, previewImage: generatedImage, engine: 'gemini' });
     }
 
-    res.json({ success: true, generationId: genId, previewImage: cleanImage, engine: ACTIVE_ENGINE });
+    if (ACTIVE_ENGINE === 'replicate') {
+      generatedImage = await runReplicate(image, prompt);
+      return res.json({ success: true, previewImage: generatedImage, engine: 'replicate' });
+    }
+
+    // both mode - try replicate first, fall back to gemini
+    try {
+      generatedImage = await runReplicate(image, prompt);
+      return res.json({ success: true, previewImage: generatedImage, engine: 'replicate' });
+    } catch {
+      generatedImage = await runGemini(image, prompt);
+      return res.json({ success: true, previewImage: generatedImage, engine: 'gemini' });
+    }
+
   } catch (error: any) {
     console.error('Stage error:', error);
     res.status(500).json({ error: error.message || 'Failed to generate image' });
