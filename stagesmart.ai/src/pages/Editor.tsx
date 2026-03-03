@@ -6,7 +6,7 @@ import { ImageComparison } from '../components/ImageComparison';
 import { cn } from '../lib/utils';
 
 type RoomType = 'Exterior' | 'Backyard' | 'Rooftop Terrace' | 'Balcony' | 'Living Room' | 'Dining Room' | 'Kitchen' | 'Bedroom' | 'Bathroom' | 'Home Office' | 'Other';
-type Step = 'upload' | 'email' | 'otp' | 'options' | 'generating' | 'result';
+type Step = 'upload' | 'email' | 'options' | 'generating' | 'result';
 
 interface EditOption {
   id: string;
@@ -187,20 +187,6 @@ export function Editor() {
   const [generatingProgress, setGeneratingProgress] = useState(0);
   const [currentTip, setCurrentTip] = useState(0);
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
-  const [otpInput, setOtpInput] = useState('');
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [otpSending, setOtpSending] = useState(false);
-  const [otpVerifying, setOtpVerifying] = useState(false);
-
-  // Check for existing verified session on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('ssa_email');
-    if (saved) {
-      setEmail(saved);
-      fetch('/api/user?email=' + encodeURIComponent(saved))
-        .then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
-    }
-  }, []);
 
   // Rotate tips during generation
   useEffect(() => {
@@ -277,61 +263,24 @@ export function Editor() {
 
   const handleEmailSubmit = async () => {
     if (!emailInput.includes('@')) return;
-    setOtpSending(true);
-    setOtpError(null);
+    setEmail(emailInput);
     try {
-      const res = await fetch('/api/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailInput })
-      });
+      const res = await fetch(`/api/user?email=${encodeURIComponent(emailInput)}`);
       const data = await res.json();
-      if (data.sent) {
-        setStep('otp');
-      } else {
-        setOtpError('Failed to send code. Please try again.');
-      }
-    } catch {
-      setOtpError('Failed to send code. Please check your connection.');
-    } finally {
-      setOtpSending(false);
-    }
-  };
+      setCredits(data.credits ?? 0);
+    } catch { setCredits(0); }
 
-  const handleOTPSubmit = async () => {
-    if (otpInput.length !== 6) return;
-    setOtpVerifying(true);
-    setOtpError(null);
+    if (!currentFile) { setStep('upload'); return; }
+    setIsAnalyzing(true);
+    setStep('options');
     try {
-      const res = await fetch('/api/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailInput, code: otpInput })
-      });
+      const formData = new FormData();
+      formData.append('image', currentFile);
+      const res = await fetch('/api/analyze', { method: 'POST', body: formData });
       const data = await res.json();
-      if (data.verified) {
-        setEmail(data.email);
-        setCredits(data.credits ?? 0);
-        localStorage.setItem('ssa_email', data.email);
-        if (!currentFile) { setStep('upload'); return; }
-        setIsAnalyzing(true);
-        setStep('options');
-        try {
-          const formData = new FormData();
-          formData.append('image', currentFile);
-          const r = await fetch('/api/analyze', { method: 'POST', body: formData });
-          const d = await r.json();
-          setRoomType(d.roomType as RoomType);
-        } catch { setRoomType('Other'); }
-        finally { setIsAnalyzing(false); }
-      } else {
-        setOtpError(data.error || 'Invalid code. Please try again.');
-      }
-    } catch {
-      setOtpError('Verification failed. Please try again.');
-    } finally {
-      setOtpVerifying(false);
-    }
+      setRoomType(data.roomType as RoomType);
+    } catch { setRoomType('Other'); }
+    finally { setIsAnalyzing(false); }
   };
 
   const toggleOption = (id: string) => {
@@ -365,19 +314,37 @@ export function Editor() {
           const res = await fetch('/api/stage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64Image, prompt: option.prompt, email })
+            body: JSON.stringify({
+              image: base64Image,
+              prompt: option.prompt,
+              email,
+              isFirstInBatch: i === 0,
+              isRetry: false
+            })
           });
+          if (res.status === 402) {
+            setError('No credits remaining. Please purchase more credits.');
+            setShowCreditWarning(true);
+            setStep('options');
+            return;
+          }
           const data = await res.json();
           if (data.previewImage) {
             newResults.push({ option, image: data.previewImage, generationId: data.generationId });
           }
         } catch (err) {
-          console.error(`Failed: ${option.label}`, err);
+          console.error('Failed: ' + option.label, err);
         }
         setGeneratingProgress(Math.round(((i + 1) / options.length) * 100));
       }
 
-      setCredits(prev => Math.max(0, prev - 1));
+      // Refresh credits from server
+      try {
+        const r = await fetch('/api/user?email=' + encodeURIComponent(email));
+        const d = await r.json();
+        setCredits(d.credits ?? 0);
+      } catch { setCredits(prev => Math.max(0, prev - 1)); }
+
       setResults(newResults);
       setActiveResult(newResults[0] || null);
       setStep('result');
@@ -435,7 +402,7 @@ export function Editor() {
         try {
           const res = await fetch('/api/stage', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64Image, prompt: option.prompt, email })
+            body: JSON.stringify({ image: base64Image, prompt: option.prompt, email, isRetry: true, isFirstInBatch: false })
           });
           const data = await res.json();
           if (data.previewImage) newResults.push({ option, image: data.previewImage, generationId: data.generationId });
@@ -549,50 +516,11 @@ export function Editor() {
                   className="w-full border-2 border-slate-200 focus:border-orange-400 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-colors mb-4"
                   autoFocus
                 />
-               <button onClick={handleEmailSubmit} disabled={!emailInput.includes('@') || otpSending}
+                <button onClick={handleEmailSubmit} disabled={!emailInput.includes('@')}
                   className="w-full py-3 bg-[#1E3A8A] hover:bg-blue-900 disabled:bg-slate-300 text-white font-bold rounded-xl transition-colors">
-                  {otpSending ? 'Sending code...' : 'Send Verification Code →'}
+                  Continue →
                 </button>
-                <p className="text-center text-xs text-slate-400 mt-3">We'll send a 6-digit code to verify it's you.</p>
-              </div>
-            </motion.div>
-          )}
-
-          {/* OTP */}
-          {step === 'otp' && (
-            <motion.div key="otp" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-md mx-auto">
-              <div className="bg-white rounded-2xl border border-slate-200 p-8">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                    <span className="text-xl">📬</span>
-                  </div>
-                  <div>
-                    <h2 className="font-bold text-slate-900">Check your email</h2>
-                    <p className="text-sm text-slate-500">Sent a 6-digit code to <strong>{emailInput}</strong></p>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-400 mb-6 ml-13">Check your spam folder if you don't see it.</p>
-                <input
-                  type="number" inputMode="numeric" pattern="[0-9]*"
-                  value={otpInput} onChange={e => setOtpInput(e.target.value.slice(0, 6))}
-                  onKeyDown={e => e.key === 'Enter' && handleOTPSubmit()}
-                  placeholder="000000"
-                  className="w-full border-2 border-slate-200 focus:border-orange-400 rounded-xl px-4 py-4 text-slate-900 text-center text-3xl font-black tracking-widest outline-none transition-colors mb-3"
-                  autoFocus
-                />
-                {otpError && <p className="text-red-500 text-sm text-center mb-3">{otpError}</p>}
-                <button onClick={handleOTPSubmit} disabled={otpInput.length !== 6 || otpVerifying}
-                  className="w-full py-3 bg-[#1E3A8A] hover:bg-blue-900 disabled:bg-slate-300 text-white font-bold rounded-xl transition-colors mb-3">
-                  {otpVerifying ? 'Verifying...' : 'Verify Code →'}
-                </button>
-                <button onClick={() => { setStep('email'); setOtpInput(''); setOtpError(null); }}
-                  className="w-full text-sm text-slate-400 hover:text-slate-600 py-2">
-                  ← Use a different email
-                </button>
-                <button onClick={handleEmailSubmit} disabled={otpSending}
-                  className="w-full text-sm text-orange-500 hover:text-orange-600 py-1">
-                  {otpSending ? 'Sending...' : 'Resend code'}
-                </button>
+                <p className="text-center text-xs text-slate-400 mt-3">No password needed. We use email to store your credits only.</p>
               </div>
             </motion.div>
           )}
@@ -765,13 +693,23 @@ export function Editor() {
               className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
               <h3 className="text-xl font-bold text-slate-900 mb-1">Get Credits</h3>
               <p className="text-slate-500 text-sm mb-6">1 credit = unlimited enhancements on one photo batch.</p>
+              {email.endsWith('@orchard.com') && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 mb-3 text-xs text-blue-700 font-medium">
+                  🏡 Orchard agent pricing applied — $1/credit on 20+ packs
+                </div>
+              )}
               <div className="space-y-2 mb-4">
-                {[
-                  { id: '1pack', label: '1 Photo Batch', price: '$5', popular: false },
-                  { id: '5pack', label: '5 Photo Batches', price: '$20', popular: true },
-                  { id: '10pack', label: '10 Photo Batches', price: '$30', popular: false },
-                  { id: '25pack', label: '25 Photo Batches', price: '$50', popular: false },
-                ].map(pkg => (
+                {(email.endsWith('@orchard.com') ? [
+                  { id: '1pack',  label: '1 Photo Batch',   price: '$5',  note: '',               popular: false },
+                  { id: '5pack',  label: '5 Photo Batches',  price: '$20', note: '',               popular: false },
+                  { id: '20pack', label: '20 Photo Batches', price: '$20', note: '$1/credit',      popular: true },
+                  { id: '50pack', label: '50 Photo Batches', price: '$50', note: '$1/credit',      popular: false },
+                ] : [
+                  { id: '1pack',  label: '1 Photo Batch',   price: '$5',  note: '',               popular: false },
+                  { id: '5pack',  label: '5 Photo Batches',  price: '$20', note: '$4/credit',      popular: true },
+                  { id: '10pack', label: '10 Photo Batches', price: '$30', note: '$3/credit',      popular: false },
+                  { id: '25pack', label: '25 Photo Batches', price: '$50', note: '$2/credit',      popular: false },
+                ]).map(pkg => (
                   <button key={pkg.id} onClick={async () => {
                     if (!email) { setShowCreditWarning(false); setStep('email'); return; }
                     const res = await fetch('/api/checkout', {
@@ -785,6 +723,7 @@ export function Editor() {
                     <span className="font-bold text-slate-900">
                       {pkg.label}
                       {pkg.popular && <span className="ml-2 text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded-full uppercase">Best Value</span>}
+                      {pkg.note && <span className="ml-2 text-[10px] text-slate-400">{pkg.note}</span>}
                     </span>
                     <span className="font-bold text-[#1E3A8A]">{pkg.price}</span>
                   </button>
