@@ -276,25 +276,63 @@ export function Editor() {
   };
 
   const handleEmailSubmit = async () => {
+ const handleEmailSubmit = async () => {
     if (!emailInput.includes('@')) return;
-    setEmail(emailInput);
+    setOtpSending(true);
+    setOtpError(null);
     try {
-      const res = await fetch(`/api/user?email=${encodeURIComponent(emailInput)}`);
+      const res = await fetch('/api/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailInput })
+      });
       const data = await res.json();
-      setCredits(data.credits ?? 0);
-    } catch { setCredits(0); }
+      if (data.sent) {
+        setStep('otp');
+      } else {
+        setOtpError('Failed to send code. Please try again.');
+      }
+    } catch {
+      setOtpError('Failed to send code. Please check your connection.');
+    } finally {
+      setOtpSending(false);
+    }
+  };
 
-    if (!currentFile) { setStep('upload'); return; }
-    setIsAnalyzing(true);
-    setStep('options');
+  const handleOTPSubmit = async () => {
+    if (otpInput.length !== 6) return;
+    setOtpVerifying(true);
+    setOtpError(null);
     try {
-      const formData = new FormData();
-      formData.append('image', currentFile);
-      const res = await fetch('/api/analyze', { method: 'POST', body: formData });
+      const res = await fetch('/api/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailInput, code: otpInput })
+      });
       const data = await res.json();
-      setRoomType(data.roomType as RoomType);
-    } catch { setRoomType('Other'); }
-    finally { setIsAnalyzing(false); }
+      if (data.verified) {
+        setEmail(data.email);
+        setCredits(data.credits ?? 0);
+        localStorage.setItem('ssa_email', data.email);
+        if (!currentFile) { setStep('upload'); return; }
+        setIsAnalyzing(true);
+        setStep('options');
+        try {
+          const formData = new FormData();
+          formData.append('image', currentFile);
+          const r = await fetch('/api/analyze', { method: 'POST', body: formData });
+          const d = await r.json();
+          setRoomType(d.roomType as RoomType);
+        } catch { setRoomType('Other'); }
+        finally { setIsAnalyzing(false); }
+      } else {
+        setOtpError(data.error || 'Invalid code. Please try again.');
+      }
+    } catch {
+      setOtpError('Verification failed. Please try again.');
+    } finally {
+      setOtpVerifying(false);
+    }
   };
 
   const toggleOption = (id: string) => {
