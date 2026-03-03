@@ -338,25 +338,27 @@ export function Editor() {
     if (watermarkEnabled) {
       imageToDownload = await addWatermarkToImage(result.image, 'SmartStageAgent.com');
     }
-    // iOS Safari requires opening in new tab for data URLs
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    if (isIOS) {
-      const w = window.open('', '_blank');
-      if (w) { w.document.write(`<img src="${imageToDownload}" style="max-width:100%"/>`); w.document.title = 'SmartStageAgent'; }
-      return;
-    }
+    // Convert base64 to blob URL for reliable download on all browsers including iOS
     try {
       const res = await fetch(imageToDownload);
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = `smartstageagent-${result.option.id}.jpg`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      const a = document.createElement('a');
-      a.href = imageToDownload; a.download = `smartstageagent-${result.option.id}.jpg`;
+      a.href = blobUrl;
+      a.download = `smartstageagent-${result.option.id}.jpg`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
       a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 1000);
+    } catch {
+      // Fallback: open image in new tab so user can long-press save on iOS
+      const a = document.createElement('a');
+      a.href = imageToDownload;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
   };
 
