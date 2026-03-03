@@ -2,7 +2,6 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Home } from './pages/Home';
 import { Editor } from './pages/Editor';
-import { EngineTest } from './pages/EngineTest';
 import { Image as ImageIcon } from 'lucide-react';
 
 function Nav() {
@@ -36,7 +35,6 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/editor" element={<Editor />} />
-            <Route path="/test" element={<EngineTest />} />
           </Routes>
         </main>
         <footer className="bg-slate-900 text-slate-400 py-8 border-t border-slate-800">
