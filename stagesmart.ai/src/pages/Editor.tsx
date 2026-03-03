@@ -121,7 +121,7 @@ const ROOM_OPTIONS: Record<string, EditOption[]> = {
   ],
 };
 function getOptions(roomType: RoomType | null): EditOption[] {
-  if (!roomType) return ROOM_OPTIONS.default;
+  if (!roomType) return ROOM_OPTIONS.['Other'];
   return (ROOM_OPTIONS as any)[roomType] || ROOM_OPTIONS.default;
 }
 
