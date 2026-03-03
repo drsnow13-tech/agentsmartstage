@@ -554,7 +554,46 @@ export function Editor() {
                   className="w-full py-3 bg-[#1E3A8A] hover:bg-blue-900 disabled:bg-slate-300 text-white font-bold rounded-xl transition-colors">
                   Continue →
                 </button>
-                <p className="text-center text-xs text-slate-400 mt-3">No password needed. We use email to store your credits only.</p>
+                <p className="text-center text-xs text-slate-400 mt-3">We'll send a 6-digit code to verify it's you.</p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* OTP */}
+          {step === 'otp' && (
+            <motion.div key="otp" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-md mx-auto">
+              <div className="bg-white rounded-2xl border border-slate-200 p-8">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                    <span className="text-xl">📬</span>
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-slate-900">Check your email</h2>
+                    <p className="text-sm text-slate-500">Sent a 6-digit code to <strong>{emailInput}</strong></p>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 mb-6 ml-13">Check your spam folder if you don't see it.</p>
+                <input
+                  type="number" inputMode="numeric" pattern="[0-9]*"
+                  value={otpInput} onChange={e => setOtpInput(e.target.value.slice(0, 6))}
+                  onKeyDown={e => e.key === 'Enter' && handleOTPSubmit()}
+                  placeholder="000000"
+                  className="w-full border-2 border-slate-200 focus:border-orange-400 rounded-xl px-4 py-4 text-slate-900 text-center text-3xl font-black tracking-widest outline-none transition-colors mb-3"
+                  autoFocus
+                />
+                {otpError && <p className="text-red-500 text-sm text-center mb-3">{otpError}</p>}
+                <button onClick={handleOTPSubmit} disabled={otpInput.length !== 6 || otpVerifying}
+                  className="w-full py-3 bg-[#1E3A8A] hover:bg-blue-900 disabled:bg-slate-300 text-white font-bold rounded-xl transition-colors mb-3">
+                  {otpVerifying ? 'Verifying...' : 'Verify Code →'}
+                </button>
+                <button onClick={() => { setStep('email'); setOtpInput(''); setOtpError(null); }}
+                  className="w-full text-sm text-slate-400 hover:text-slate-600 py-2">
+                  ← Use a different email
+                </button>
+                <button onClick={handleEmailSubmit} disabled={otpSending}
+                  className="w-full text-sm text-orange-500 hover:text-orange-600 py-1">
+                  {otpSending ? 'Sending...' : 'Resend code'}
+                </button>
               </div>
             </motion.div>
           )}
