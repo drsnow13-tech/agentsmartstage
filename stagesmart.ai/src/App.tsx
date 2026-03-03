@@ -3,18 +3,15 @@ import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-do
 import { Home } from './pages/Home';
 import { Editor } from './pages/Editor';
 import { EngineTest } from './pages/EngineTest';
-import { Home as HomeIcon, Image as ImageIcon } from 'lucide-react';
+import { Image as ImageIcon } from 'lucide-react';
 
 function Nav() {
   const location = useLocation();
   return (
     <header className="bg-[#1E3A8A] text-white sticky top-0 z-50 shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2 font-bold text-xl tracking-tight">
-          <div className="w-8 h-8 rounded bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow-inner">
-            <HomeIcon className="w-5 h-5 text-white" />
-          </div>
-          SmartStageAgent<span className="text-orange-400">.com</span>
+        <Link to="/">
+          <img src="/234172861.png" alt="SmartStageAgent.com" className="h-10 w-auto" />
         </Link>
         <nav className="flex items-center gap-6 text-sm font-medium">
           <Link to="/" className={`hover:text-orange-300 transition-colors ${location.pathname === '/' ? 'text-orange-300' : ''}`}>
@@ -43,12 +40,7 @@ export default function App() {
         </main>
         <footer className="bg-slate-900 text-slate-400 py-8 border-t border-slate-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center">
-                <HomeIcon className="w-3 h-3 text-slate-500" />
-              </div>
-              <span className="font-semibold text-slate-300">SmartStageAgent.com</span>
-            </div>
+            <img src="/234172861.png" alt="SmartStageAgent.com" className="h-8 w-auto opacity-70" />
             <div className="text-sm text-center">
               © 2026 SmartStageAgent.com. All rights reserved.
               <span className="mx-2 text-slate-600">|</span>
