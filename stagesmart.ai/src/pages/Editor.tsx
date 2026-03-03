@@ -550,9 +550,9 @@ export function Editor() {
                   className="w-full border-2 border-slate-200 focus:border-orange-400 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-colors mb-4"
                   autoFocus
                 />
-                <button onClick={handleEmailSubmit} disabled={!emailInput.includes('@')}
+               <button onClick={handleEmailSubmit} disabled={!emailInput.includes('@') || otpSending}
                   className="w-full py-3 bg-[#1E3A8A] hover:bg-blue-900 disabled:bg-slate-300 text-white font-bold rounded-xl transition-colors">
-                  Continue →
+                  {otpSending ? 'Sending code...' : 'Send Verification Code →'}
                 </button>
                 <p className="text-center text-xs text-slate-400 mt-3">We'll send a 6-digit code to verify it's you.</p>
               </div>
