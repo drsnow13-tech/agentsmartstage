@@ -182,20 +182,9 @@ export function Editor() {
   const [error, setError] = useState<string | null>(null);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [generatingProgress, setGeneratingProgress] = useState(0);
-  const [currentTip, setCurrentTip] = useState(0);
+const [currentTip, setCurrentTip] = useState(0);
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
-
-  // Restore session and handle payment success on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('ssa_email');
-    if (saved) {
-      setEmail(saved);
-      setEmailInput(saved);
-      fetch('/api/user?email=' + encodeURIComponent(saved))
-        .then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
-    }
-    
-   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   // Restore session and handle payment success on mount
   useEffect(() => {
