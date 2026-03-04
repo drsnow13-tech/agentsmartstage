@@ -6,7 +6,7 @@ import { ImageComparison } from '../components/ImageComparison';
 import { cn } from '../lib/utils';
 
 type RoomType = 'Exterior' | 'Backyard' | 'Rooftop Terrace' | 'Balcony' | 'Living Room' | 'Dining Room' | 'Kitchen' | 'Bedroom' | 'Bathroom' | 'Home Office' | 'Other';
-type Step = 'upload' | 'email' | 'options' | 'generating' | 'result';
+type Step = 'upload' | 'email' | 'otp' | 'options' | 'generating' | 'result';
 
 interface EditOption {
   id: string;
@@ -187,6 +187,37 @@ export function Editor() {
   const [generatingProgress, setGeneratingProgress] = useState(0);
   const [currentTip, setCurrentTip] = useState(0);
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
+const [otpInput, setOtpInput] = useState('');
+const [otpError, setOtpError] = useState<string | null>(null);
+const [otpSending, setOtpSending] = useState(false);
+const [otpVerifying, setOtpVerifying] = useState(false);
+const [hasDownloaded, setHasDownloaded] = useState(false);
+const [showSuccessToast, setShowSuccessToast] = useState(false);
+// Check for payment success redirect
+useEffect(() => {
+const params = new URLSearchParams(window.location.search);
+if (params.get('success') === 'true') {
+setShowSuccessToast(true);
+window.history.replaceState({}, '', '/editor');
+// Refresh credits if we have an email
+const saved = localStorage.getItem('ssa_email');
+if (saved) {
+fetch('/api/user?email=' + encodeURIComponent(saved))
+.then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
+}
+setTimeout(() => setShowSuccessToast(false), 5000);
+}
+}, []);
+// Check for existing verified session on mount
+useEffect(() => {
+const saved = localStorage.getItem('ssa_email');
+if (saved) {
+setEmail(saved);
+setEmailInput(saved);
+fetch('/api/user?email=' + encodeURIComponent(saved))
+.then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
+}
+}, []);
 
   // Rotate tips during generation
   useEffect(() => {
@@ -261,27 +292,63 @@ export function Editor() {
     if (file) processFile(file);
   };
 
-  const handleEmailSubmit = async () => {
-    if (!emailInput.includes('@')) return;
-    setEmail(emailInput);
-    try {
-      const res = await fetch(`/api/user?email=${encodeURIComponent(emailInput)}`);
-      const data = await res.json();
-      setCredits(data.credits ?? 0);
-    } catch { setCredits(0); }
-
-    if (!currentFile) { setStep('upload'); return; }
-    setIsAnalyzing(true);
-    setStep('options');
-    try {
-      const formData = new FormData();
-      formData.append('image', currentFile);
-      const res = await fetch('/api/analyze', { method: 'POST', body: formData });
-      const data = await res.json();
-      setRoomType(data.roomType as RoomType);
-    } catch { setRoomType('Other'); }
-    finally { setIsAnalyzing(false); }
-  };
+const handleEmailSubmit = async () => {
+if (!emailInput.includes('@')) return;
+setOtpSending(true);
+setOtpError(null);
+try {
+const res = await fetch('/api/send-otp', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ email: emailInput })
+});
+const data = await res.json();
+if (data.sent) {
+setStep('otp');
+} else {
+setOtpError('Failed to send code. Please try again.');
+}
+} catch {
+setOtpError('Failed to send code. Please check your connection.');
+} finally {
+setOtpSending(false);
+}
+};
+const handleOTPSubmit = async () => {
+if (otpInput.length !== 6) return;
+setOtpVerifying(true);
+setOtpError(null);
+try {
+const res = await fetch('/api/verify-otp', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ email: emailInput, code: otpInput })
+});
+const data = await res.json();
+if (data.verified) {
+setEmail(data.email);
+setCredits(data.credits ?? 0);
+localStorage.setItem('ssa_email', data.email);
+if (!currentFile) { setStep('upload'); return; }
+setIsAnalyzing(true);
+setStep('options');
+try {
+const formData = new FormData();
+formData.append('image', currentFile);
+const r = await fetch('/api/analyze', { method: 'POST', body: formData });
+const d = await r.json();
+setRoomType(d.roomType as RoomType);
+} catch { setRoomType('Other'); }
+finally { setIsAnalyzing(false); }
+} else {
+setOtpError(data.error || 'Invalid code. Please try again.');
+}
+} catch {
+setOtpError('Verification failed. Please try again.');
+} finally {
+setOtpVerifying(false);
+}
+};
 
   const toggleOption = (id: string) => {
     setSelectedOptions(prev => {
@@ -295,10 +362,11 @@ export function Editor() {
     if (!originalImage || !currentFile || selectedOptions.size === 0) return;
     if (credits < 1) { setShowCreditWarning(true); return; }
 
-    setStep('generating');
-    setGeneratingProgress(0);
-    setCurrentTip(0);
-    setError(null);
+     setStep('generating');
+     setGeneratingProgress(0);
+     setCurrentTip(0);
+     setError(null);
+     setHasDownloaded(false);
 
     const options = getOptions(roomType).filter(o => selectedOptions.has(o.id));
     const newResults: GeneratedResult[] = [];
@@ -351,7 +419,25 @@ export function Editor() {
     };
   };
 
-  const handleDownload = async (result: GeneratedResult) => {
+const handleDownload = async (result: GeneratedResult) => {
+    // Only deduct credit on first download of a batch
+    if (!hasDownloaded) {
+      if (credits < 1) { setShowCreditWarning(true); return; }
+      try {
+        const creditRes = await fetch('/api/deduct-credit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const creditData = await creditRes.json();
+        if (!creditData.success) { setShowCreditWarning(true); return; }
+        setCredits(creditData.credits);
+        setHasDownloaded(true);
+      } catch {
+        setShowCreditWarning(true); return;
+      }
+    }
+
     let imageToDownload = result.image;
     if (watermarkEnabled) {
       imageToDownload = await addWatermarkToImage(result.image, 'SmartStageAgent.com');
@@ -369,7 +455,6 @@ export function Editor() {
       a.click();
       setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 1000);
     } catch {
-      // Fallback: open image in new tab so user can long-press save on iOS
       const a = document.createElement('a');
       a.href = imageToDownload;
       a.target = '_blank';
@@ -424,6 +509,13 @@ export function Editor() {
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-slate-50">
+{/* Success Toast */}
+      {showSuccessToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-3 rounded-2xl shadow-xl font-bold flex items-center gap-2">
+          ✓ Payment successful! Credits added to your account.
+        </div>
+      )}
+
       {/* Credit bar */}
       <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -432,7 +524,7 @@ export function Editor() {
         </div>
         <div className="flex items-center gap-2">
           {email && <span className="text-xs text-slate-400 hidden sm:block">{email}</span>}
-          <span className="text-sm font-bold text-slate-900">{credits} credits</span>
+          <span className={`text-sm font-bold ${credits > 0 ? 'text-slate-900' : 'text-red-500'}`}>{credits} credits</span>
           <button onClick={() => setShowCreditWarning(true)} className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-full font-medium transition-colors">
             Buy Credits
           </button>
@@ -490,7 +582,7 @@ export function Editor() {
             </motion.div>
           )}
 
-          {/* EMAIL */}
+   {/* EMAIL */}
           {step === 'email' && (
             <motion.div key="email" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-md mx-auto">
               {originalImage && (
@@ -516,15 +608,54 @@ export function Editor() {
                   className="w-full border-2 border-slate-200 focus:border-orange-400 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-colors mb-4"
                   autoFocus
                 />
-                <button onClick={handleEmailSubmit} disabled={!emailInput.includes('@')}
+                <button onClick={handleEmailSubmit} disabled={!emailInput.includes('@') || otpSending}
                   className="w-full py-3 bg-[#1E3A8A] hover:bg-blue-900 disabled:bg-slate-300 text-white font-bold rounded-xl transition-colors">
-                  Continue →
+                  {otpSending ? 'Sending code...' : 'Send Verification Code →'}
                 </button>
-                <p className="text-center text-xs text-slate-400 mt-3">No password needed. We use email to store your credits only.</p>
+                <p className="text-center text-xs text-slate-400 mt-3">We'll send a 6-digit code to verify it's you.</p>
               </div>
             </motion.div>
           )}
 
+          {/* OTP */}
+          {step === 'otp' && (
+            <motion.div key="otp" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-md mx-auto">
+              <div className="bg-white rounded-2xl border border-slate-200 p-8">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                    <span className="text-xl">📬</span>
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-slate-900">Check your email</h2>
+                    <p className="text-sm text-slate-500">Sent a 6-digit code to <strong>{emailInput}</strong></p>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 mb-6">Check your spam folder if you don't see it within a minute.</p>
+                <input
+                  type="number" inputMode="numeric" pattern="[0-9]*"
+                  value={otpInput} onChange={e => setOtpInput(e.target.value.slice(0, 6))}
+                  onKeyDown={e => e.key === 'Enter' && handleOTPSubmit()}
+                  placeholder="000000"
+                  className="w-full border-2 border-slate-200 focus:border-orange-400 rounded-xl px-4 py-4 text-slate-900 text-center text-3xl font-black tracking-widest outline-none transition-colors mb-3"
+                  autoFocus
+                />
+                {otpError && <p className="text-red-500 text-sm text-center mb-3">{otpError}</p>}
+                <button onClick={handleOTPSubmit} disabled={otpInput.length !== 6 || otpVerifying}
+                  className="w-full py-3 bg-[#1E3A8A] hover:bg-blue-900 disabled:bg-slate-300 text-white font-bold rounded-xl transition-colors mb-3">
+                  {otpVerifying ? 'Verifying...' : 'Verify Code →'}
+                </button>
+                <button onClick={() => { setStep('email'); setOtpInput(''); setOtpError(null); }}
+                  className="w-full text-sm text-slate-400 hover:text-slate-600 py-2">
+                  ← Use a different email
+                </button>
+                <button onClick={handleEmailSubmit} disabled={otpSending}
+                  className="w-full text-sm text-orange-500 hover:text-orange-600 py-1">
+                  {otpSending ? 'Sending...' : 'Resend code'}
+                </button>
+              </div>
+            </motion.div>
+          )}
+          
           {/* OPTIONS */}
           {step === 'options' && originalImage && (
             <motion.div key="options" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
