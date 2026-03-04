@@ -194,6 +194,7 @@ export function Editor() {
       fetch('/api/user?email=' + encodeURIComponent(saved))
         .then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
     }
+    
    const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   // Restore session and handle payment success on mount
