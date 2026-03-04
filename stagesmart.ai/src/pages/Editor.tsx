@@ -194,7 +194,17 @@ export function Editor() {
       fetch('/api/user?email=' + encodeURIComponent(saved))
         .then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
     }
-    // Show success toast if returning from Stripe
+   const [showSuccessToast, setShowSuccessToast] = useState(false);
+
+  // Restore session and handle payment success on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('ssa_email');
+    if (saved) {
+      setEmail(saved);
+      setEmailInput(saved);
+      fetch('/api/user?email=' + encodeURIComponent(saved))
+        .then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
+    }
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true') {
       setShowSuccessToast(true);
