@@ -350,12 +350,8 @@ setOtpVerifying(false);
 }
 };
 
-  const toggleOption = (id: string) => {
-    setSelectedOptions(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+const toggleOption = (id: string) => {
+    setSelectedOptions(new Set([id]));
   };
 
   const handleGenerateAll = async () => {
@@ -716,13 +712,12 @@ const handleDownload = async (result: GeneratedResult) => {
                   <button onClick={handleGenerateAll} disabled={selectedOptions.size === 0 || isAnalyzing}
                     className="w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl flex items-center justify-center gap-2 transition-colors">
                     <Wand2 className="w-5 h-5" />
-                    {selectedOptions.size === 0 ? 'Select enhancements above' : (selectedOptions.size > 1 ? `Generate ${selectedOptions.size} Enhancements — 1 Credit` : 'Generate 1 Enhancement — 1 Credit')}
+                    {selectedOptions.size === 0 ? 'Select an enhancement above' : 'Generate 4 Versions — 1 Credit'}
                   </button>
                 </div>
               </div>
             </motion.div>
           )}
-
           {/* GENERATING */}
           {step === 'generating' && (
             <motion.div key="generating" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center py-20">
