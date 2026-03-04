@@ -280,12 +280,8 @@ export function Editor() {
     finally { setIsAnalyzing(false); }
   };
 
-  const toggleOption = (id: string) => {
-    setSelectedOptions(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+      const toggleOption = (id: string) => {
+      setSelectedOptions(new Set([id]));
   };
 
   const handleGenerateAll = async () => {
