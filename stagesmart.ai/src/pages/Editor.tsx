@@ -185,6 +185,24 @@ export function Editor() {
   const [currentTip, setCurrentTip] = useState(0);
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
 
+  // Restore session and handle payment success on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('ssa_email');
+    if (saved) {
+      setEmail(saved);
+      setEmailInput(saved);
+      fetch('/api/user?email=' + encodeURIComponent(saved))
+        .then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
+    }
+    // Show success toast if returning from Stripe
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === 'true') {
+      setShowSuccessToast(true);
+      window.history.replaceState({}, '', '/editor');
+      setTimeout(() => setShowSuccessToast(false), 5000);
+    }
+  }, []);
+
   // Rotate tips during generation
   useEffect(() => {
     if (step !== 'generating') return;
