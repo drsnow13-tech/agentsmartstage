@@ -53,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Email to Darren with full context and photos attached
     await resend.emails.send({
       from: 'StageSmart.ai <noreply@smartstageagent.com>',
-      to: 'support@smartstageagent.com',
+      to: 'drsnow13@gmail.com',
       replyTo: email,
       subject: `🚨 ${issueType || 'Bad Result'} — ${roomType || 'Unknown'} / ${enhancementLabel || 'Unknown'} — ${remedyRequested || 'No remedy selected'}`,
       html: `
