@@ -568,12 +568,6 @@ export function Editor() {
     setError(null); setCurrentFile(null); setHasDownloaded(false);
     setSelectedTile(0);
   };
-  const handleReset = () => {
-    setStep('upload'); setOriginalImage(null); setBase64Image(null);
-    setTileImages([]); setRoomType(null); setSelectedOption(null);
-    setError(null); setCurrentFile(null); setHasDownloaded(false);
-    setSelectedTile(0);
-  };
 
   const handleTryAnother = () => {
     setStep('options'); setTileImages([]); setSelectedOption(null);
