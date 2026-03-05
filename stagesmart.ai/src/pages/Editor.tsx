@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Wand2, Loader2, Download, RotateCcw, Sparkles, AlertCircle, Mail, CheckSquare, Square, Info } from 'lucide-react';
+import { Upload, Wand2, Loader2, Download, RotateCcw, Sparkles, AlertCircle, Mail, CheckSquare, Square, Info, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ImageComparison } from '../components/ImageComparison';
 import { cn } from '../lib/utils';
@@ -8,13 +8,7 @@ import { cn } from '../lib/utils';
 type RoomType = 'Exterior' | 'Backyard' | 'Rooftop Terrace' | 'Balcony' | 'Living Room' | 'Dining Room' | 'Kitchen' | 'Bedroom' | 'Bathroom' | 'Home Office' | 'Other';
 type Step = 'upload' | 'email' | 'options' | 'generating' | 'result';
 
-interface EditOption {
-  id: string;
-  label: string;
-  description: string;
-  emoji: string;
-  prompt: string;
-}
+interface EditOption { id: string; label: string; description: string; emoji: string; prompt: string; }
 
 const TIPS = [
   "Twilight photos get 3x more saves on Zillow",
@@ -29,21 +23,11 @@ const CEILING_RULE = 'Keep all existing ceiling fixtures, ceiling fans, light fi
 const ARCHWAY_RULE = 'CRITICAL: Keep ALL doorways, archways, open passages, stairways, and any opening between rooms 100% clear — never place any furniture, rugs, or objects within 3 feet of any opening, archway, or passage. This is non-negotiable.';
 const GAME_ROOM_LIGHT_RULE = 'CRITICAL: If a ceiling fan exists on the ceiling, do NOT add any pendant lights or hanging fixtures whatsoever — the ceiling must remain exactly as-is. Only add pendant lights if the ceiling is completely empty with no existing fixtures.';
 
-const REMOVE_FURNITURE: EditOption = {
-  id: 'remove-furniture',
-  label: 'Remove All Furniture',
-  description: 'Strip furniture, brighten & ready for staging',
-  emoji: '🗑️',
-  prompt: `Remove ALL existing furniture, rugs, curtains, and decor from this room completely. Keep walls, floors, baseboards, windows, doors, ceiling, fireplace, built-ins, and every architectural feature exactly identical. ${CEILING_RULE} Dramatically brighten the room — maximize natural light, warm white balance. Result: completely empty, bright, clean room ready for virtual staging. Professional real estate photography.`
-};
+const REMOVE_FURNITURE: EditOption = { id: 'remove-furniture', label: 'Remove All Furniture', description: 'Strip furniture, brighten & ready for staging', emoji: '🗑️',
+  prompt: `Remove ALL existing furniture, rugs, curtains, and decor from this room completely. Keep walls, floors, baseboards, windows, doors, ceiling, fireplace, built-ins, and every architectural feature exactly identical. ${CEILING_RULE} Dramatically brighten the room — maximize natural light, warm white balance. Result: completely empty, bright, clean room ready for virtual staging. Professional real estate photography.` };
 
-const REMOVE_CLUTTER: EditOption = {
-  id: 'remove-clutter-outdoor',
-  label: 'Remove Clutter',
-  description: 'Clean up debris, bins, vehicles & brighten',
-  emoji: '🧹',
-  prompt: 'Remove ALL of the following from this photo: trash cans, recycling bins, vehicles, cars, hoses, yard tools, debris, personal items, sports equipment, construction materials, and any other clutter. Fill removed areas with seamlessly matching background. Keep ALL architectural features, landscaping, structures, and sky exactly identical. Brighten and enhance the overall photo — improve sky, boost vibrancy. Clean professional MLS real estate photography.'
-};
+const REMOVE_CLUTTER: EditOption = { id: 'remove-clutter-outdoor', label: 'Remove Clutter', description: 'Clean up debris, bins, vehicles & brighten', emoji: '🧹',
+  prompt: 'Remove ALL of the following from this photo: trash cans, recycling bins, vehicles, cars, hoses, yard tools, debris, personal items, sports equipment, construction materials, and any other clutter. Fill removed areas with seamlessly matching background. Keep ALL architectural features, landscaping, structures, and sky exactly identical. Brighten and enhance the overall photo — improve sky, boost vibrancy. Clean professional MLS real estate photography.' };
 
 const ROOM_OPTIONS: Record<string, EditOption[]> = {
   Exterior: [
@@ -62,7 +46,7 @@ const ROOM_OPTIONS: Record<string, EditOption[]> = {
   'Rooftop Terrace': [
     { id: 'twilight', label: 'Virtual Twilight', description: 'Cinematic city skyline at dusk', emoji: '🌅', prompt: 'Transform this rooftop terrace into a stunning real estate twilight shot. First remove any trash, construction debris, or clutter present. Sky: deep blue-violet gradient with warm amber horizon. City lights or suburban skyline glowing in the distance if visible. String lights or Edison bulb strands overhead glowing warm amber. All terrace lighting on. The scene should feel luxurious, aspirational, and cinematic — like a rooftop bar or penthouse. Keep ALL existing structures, railings, HVAC units if architectural, and terrace surfaces exactly identical. Professional real estate photography.' },
     { id: 'turf', label: 'Add Turf', description: 'Turf added, photo brightened', emoji: '🌿', prompt: 'Add realistic artificial turf to the rooftop terrace surface. The turf should look high-quality — bright green, uniform, professional installation with clean edges and borders. Keep all railings, walls, mechanical equipment, and perimeter structures exactly identical. Turf covers the main terrace floor area only — not railings or vertical surfaces. Professional real estate photography.' },
-    { id: 'furniture', label: 'Add Rooftop Furniture', description: 'Staged with furniture & brightened', emoji: '🪑', prompt: 'First remove any existing clutter or debris. Then add aspirational urban rooftop furniture: A modern outdoor sectional sofa in weather-resistant grey or white fabric with colorful throw pillows, arranged to face the best view. A low outdoor coffee table with lanterns and small potted succulents. A separate dining area with a round table and 4 chairs if space allows. String lights or Edison bulb strands overhead. Large container plants — tall ornamental grasses, boxwoods, or tropical plants in modern planters defining the space. A small bar cart or outdoor kitchen island if space allows. Everything should look sleek, modern, and high-end. Keep ALL railings, walls, and architectural elements exactly identical. Professional real estate photography.' },
+    { id: 'furniture', label: 'Add Rooftop Furniture', description: 'Staged with furniture & brightened', emoji: '🪑', prompt: 'First remove any existing clutter or debris. Then add aspirational urban rooftop furniture: A modern outdoor sectional sofa in weather-resistant grey or white fabric with colorful throw pillows, arranged to face the best view. A low outdoor coffee table with lanterns and small potted succulents. A separate dining area with a round table and 4 chairs if space allows. String lights or Edison bulb strands overhead. Large container plants — tall ornamental grasses, boxwoods, or tropical plants in modern planters defining the space. Everything should look sleek, modern, and high-end. Keep ALL railings, walls, and architectural elements exactly identical. Professional real estate photography.' },
     REMOVE_CLUTTER,
   ],
   Balcony: [
@@ -143,17 +127,13 @@ function addWatermarkToImage(imageDataUrl: string, text: string): Promise<string
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = img.width; canvas.height = img.height;
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(img, 0, 0);
       const fontSize = Math.max(16, Math.floor(img.width / 40));
       ctx.font = `bold ${fontSize}px Arial`;
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
-      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
-      ctx.lineWidth = 2;
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'bottom';
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2;
+      ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
       const padding = Math.floor(img.width * 0.02);
       ctx.strokeText(text, img.width - padding, img.height - padding);
       ctx.fillText(text, img.width - padding, img.height - padding);
@@ -193,10 +173,8 @@ export function Editor() {
   useEffect(() => {
     const saved = localStorage.getItem('ssa_email');
     if (saved) {
-      setEmail(saved);
-      setEmailInput(saved);
-      fetch('/api/user?email=' + encodeURIComponent(saved))
-        .then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
+      setEmail(saved); setEmailInput(saved);
+      fetch('/api/user?email=' + encodeURIComponent(saved)).then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
     }
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true') {
@@ -207,8 +185,7 @@ export function Editor() {
       if (emailToRefresh) {
         [2000, 5000, 10000].forEach(delay => {
           setTimeout(() => {
-            fetch('/api/user?email=' + encodeURIComponent(emailToRefresh))
-              .then(r => r.json()).then(d => { if (d.credits !== undefined) setCredits(d.credits); }).catch(() => {});
+            fetch('/api/user?email=' + encodeURIComponent(emailToRefresh)).then(r => r.json()).then(d => { if (d.credits !== undefined) setCredits(d.credits); }).catch(() => {});
           }, delay);
         });
       }
@@ -221,93 +198,58 @@ export function Editor() {
     return () => clearInterval(interval);
   }, [step]);
 
-  const compressImage = (file: File): Promise<File> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        const MAX = 2048;
-        let { width, height } = img;
-        if (width > MAX || height > MAX) {
-          if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
-          else { width = Math.round(width * MAX / height); height = MAX; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
-        canvas.toBlob(blob => {
-          if (blob) resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
-          else resolve(file);
-        }, 'image/jpeg', 0.85);
-      };
-      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-      img.src = url;
-    });
-  };
+  const compressImage = (file: File): Promise<File> => new Promise((resolve) => {
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url); const MAX = 2048; let { width, height } = img;
+      if (width > MAX || height > MAX) { if (width > height) { height = Math.round(height * MAX / width); width = MAX; } else { width = Math.round(width * MAX / height); height = MAX; } }
+      const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(blob => { if (blob) resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })); else resolve(file); }, 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); }; img.src = url;
+  });
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
+  const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader(); reader.onload = () => resolve(reader.result as string); reader.onerror = reject; reader.readAsDataURL(file);
+  });
 
   const analyzeRoom = useCallback(async (file: File) => {
     setIsAnalyzing(true);
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-      const res = await fetch('/api/analyze', { method: 'POST', body: formData });
-      const data = await res.json();
-      setRoomType(data.roomType as RoomType);
-    } catch { setRoomType('Other'); }
-    finally { setIsAnalyzing(false); }
+    try { const formData = new FormData(); formData.append('image', file); const res = await fetch('/api/analyze', { method: 'POST', body: formData }); const data = await res.json(); setRoomType(data.roomType as RoomType); }
+    catch { setRoomType('Other'); } finally { setIsAnalyzing(false); }
   }, []);
 
   const processFile = useCallback(async (file: File) => {
     if (!file) return;
     setError(null); setSelectedOption(null); setTileImages([]); setHasDownloaded(false);
     const compressed = await compressImage(file);
-    const previewUrl = URL.createObjectURL(compressed);
-    setOriginalImage(previewUrl);
-    setCurrentFile(compressed);
-    const b64 = await fileToBase64(compressed);
-    setBase64Image(b64);
+    setOriginalImage(URL.createObjectURL(compressed)); setCurrentFile(compressed);
+    const b64 = await fileToBase64(compressed); setBase64Image(b64);
     if (!email) { setStep('email'); return; }
-    setStep('options');
-    await analyzeRoom(compressed);
+    setStep('options'); await analyzeRoom(compressed);
   }, [email, analyzeRoom]);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles[0]) processFile(acceptedFiles[0]);
-  }, [processFile]);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop, accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'] }, maxFiles: 1
-  } as any);
-
+  const onDrop = useCallback((acceptedFiles: File[]) => { if (acceptedFiles[0]) processFile(acceptedFiles[0]); }, [processFile]);
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'] }, maxFiles: 1 } as any);
   const mobileInputRef = useRef<HTMLInputElement>(null);
-  const handleMobileFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processFile(file);
-  };
+  const handleMobileFile = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) processFile(file); };
 
   const handleEmailSubmit = async () => {
     if (!emailInput.includes('@')) return;
     const normalizedEmail = emailInput.toLowerCase().trim();
-    setEmail(normalizedEmail);
-    localStorage.setItem('ssa_email', normalizedEmail);
-    try {
-      const res = await fetch(`/api/user?email=${encodeURIComponent(normalizedEmail)}`);
-      const data = await res.json();
-      setCredits(data.credits ?? 0);
-    } catch { setCredits(0); }
+    setEmail(normalizedEmail); localStorage.setItem('ssa_email', normalizedEmail);
+    try { const res = await fetch(`/api/user?email=${encodeURIComponent(normalizedEmail)}`); const data = await res.json(); setCredits(data.credits ?? 0); } catch { setCredits(0); }
     if (!currentFile) { setStep('upload'); return; }
-    setStep('options');
-    await analyzeRoom(currentFile);
+    setStep('options'); await analyzeRoom(currentFile);
+  };
+
+  const handleSignOut = () => {
+    localStorage.removeItem('ssa_email');
+    setEmail(''); setEmailInput(''); setCredits(0);
+    setStep('upload'); setOriginalImage(null); setBase64Image(null); setTileImages([]);
+    setRoomType(null); setSelectedOption(null); setError(null); setCurrentFile(null);
+    setHasDownloaded(false); setSelectedTile(0);
   };
 
   const toggleOption = (id: string) => { setSelectedOption(id); };
@@ -320,17 +262,12 @@ export function Editor() {
     const completedImages: (string | null)[] = [null, null, null, null];
     let completedCount = 0;
     const promises = Array.from({ length: 4 }, (_, i) =>
-      fetch('/api/stage', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Image, prompt: option.prompt, email, isFirstInBatch: i === 0, isRetry: false })
-      })
-        .then(res => { if (res.status === 402) throw new Error('NO_CREDITS'); return res.json(); })
+      fetch('/api/stage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: base64Image, prompt: option.prompt, email }) })
+        .then(res => { if (!res.ok) throw new Error('Generation failed'); return res.json(); })
         .then(data => { completedCount++; setGeneratingProgress(Math.round((completedCount / 4) * 100)); completedImages[i] = data.previewImage || null; })
-        .catch(err => { completedCount++; setGeneratingProgress(Math.round((completedCount / 4) * 100)); if (err.message === 'NO_CREDITS') throw err; completedImages[i] = null; })
+        .catch(err => { completedCount++; setGeneratingProgress(Math.round((completedCount / 4) * 100)); console.error(`Generation ${i + 1} failed:`, err); completedImages[i] = null; })
     );
-    try { await Promise.all(promises); } catch (err: any) {
-      if (err?.message === 'NO_CREDITS') { setError('No credits remaining. Please purchase more credits.'); setShowCreditWarning(true); setStep('options'); return; }
-    }
+    await Promise.all(promises);
     const validImages = completedImages.filter(Boolean) as string[];
     if (validImages.length === 0) { setError('All generations failed. Please try again.'); setStep('options'); return; }
     setTileImages(validImages); setSelectedTile(0); setStep('result');
@@ -361,14 +298,8 @@ export function Editor() {
     if (!reportIssueType || !reportRemedy) return;
     setReportSubmitting(true);
     try {
-      await fetch('/api/report', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email, roomType, enhancementId: selectedOption, enhancementLabel: selectedOptionObj?.label,
-          tileIndex: selectedTile, issueType: reportIssueType, remedyRequested: reportRemedy,
-          notes: reportNotes.trim() || undefined, originalImage: base64Image || undefined, resultImage: tileImages[selectedTile] || undefined,
-        })
-      });
+      await fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, roomType, enhancementId: selectedOption, enhancementLabel: selectedOptionObj?.label, tileIndex: selectedTile, issueType: reportIssueType, remedyRequested: reportRemedy, notes: reportNotes.trim() || undefined, originalImage: base64Image || undefined, resultImage: tileImages[selectedTile] || undefined }) });
       setReportSent(true); setShowReportModal(false); setReportNotes(''); setReportIssueType(''); setReportRemedy('');
       setTimeout(() => setReportSent(false), 8000);
     } catch { setError('Failed to send report. Please email darren@smartstageagent.com directly.'); }
@@ -383,10 +314,7 @@ export function Editor() {
     const completedImages: (string | null)[] = [null, null, null, null];
     let completedCount = 0;
     const promises = Array.from({ length: 4 }, (_, i) =>
-      fetch('/api/stage', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Image, prompt: option.prompt, email, isRetry: true, isFirstInBatch: false })
-      })
+      fetch('/api/stage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: base64Image, prompt: option.prompt, email }) })
         .then(res => res.json())
         .then(data => { completedCount++; setGeneratingProgress(Math.round((completedCount / 4) * 100)); completedImages[i] = data.previewImage || null; })
         .catch(err => { completedCount++; setGeneratingProgress(Math.round((completedCount / 4) * 100)); console.error(err); completedImages[i] = null; })
@@ -411,13 +339,21 @@ export function Editor() {
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-slate-50">
+      {/* Credit bar with sign out */}
       <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Sparkles className="w-4 h-4 text-orange-500" />
           <span className="hidden sm:inline">Select an enhancement — </span><strong>1 credit per photo</strong>
         </div>
         <div className="flex items-center gap-2">
-          {email && <span className="text-xs text-slate-400 hidden sm:block">{email}</span>}
+          {email && (
+            <>
+              <span className="text-xs text-slate-400 hidden sm:block">{email}</span>
+              <button onClick={handleSignOut} className="text-xs text-slate-400 hover:text-red-500 transition-colors" title="Sign out">
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
           <span className="text-sm font-bold text-slate-900">{credits} credits</span>
           <button onClick={() => setShowCreditWarning(true)} className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-full font-medium transition-colors">Buy Credits</button>
         </div>
@@ -456,10 +392,7 @@ export function Editor() {
               <div {...getRootProps()} className={cn("hidden sm:flex border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all flex-col items-center gap-4", isDragActive ? "border-orange-500 bg-orange-50" : "border-slate-300 hover:border-orange-400 hover:bg-slate-100 bg-white")}>
                 <input {...getInputProps()} />
                 <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center"><Upload className="w-8 h-8 text-orange-500" /></div>
-                <div>
-                  <p className="text-lg font-bold text-slate-900 mb-1">{isDragActive ? 'Drop it here' : 'Drag & drop your photo here'}</p>
-                  <p className="text-slate-500 text-sm">or click to browse — JPG, PNG, WEBP, HEIC up to 10MB</p>
-                </div>
+                <div><p className="text-lg font-bold text-slate-900 mb-1">{isDragActive ? 'Drop it here' : 'Drag & drop your photo here'}</p><p className="text-slate-500 text-sm">or click to browse — JPG, PNG, WEBP, HEIC up to 10MB</p></div>
                 <div className="flex items-center gap-6 text-xs text-slate-400 mt-2"><span>🏠 Exteriors</span><span>🛋️ Living Rooms</span><span>🍳 Kitchens</span><span>🛏️ Bedrooms</span></div>
               </div>
               <p className="text-center text-xs text-slate-400 mt-4">Free to upload. 1 credit charged per download. Photos deleted after 24 hours.</p>
@@ -537,7 +470,7 @@ export function Editor() {
                 <motion.div key={currentTip} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                   className="bg-blue-50 border border-blue-100 rounded-xl px-6 py-4 max-w-sm mx-auto"><p className="text-sm font-medium text-blue-700">💡 {TIPS[currentTip]}</p></motion.div>
               </AnimatePresence>
-              <p className="text-xs font-semibold text-orange-400 mt-6">⚠️ Photos are NOT stored — download immediately when ready or they will be deleted after 24 hours</p>
+              <p className="text-xs font-semibold text-orange-400 mt-6">⚠️ Photos are NOT stored — download immediately when ready</p>
             </motion.div>
           )}
 
@@ -624,6 +557,7 @@ export function Editor() {
         </AnimatePresence>
       </div>
 
+      {/* Credit Purchase Modal */}
       <AnimatePresence>
         {showCreditWarning && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -649,8 +583,7 @@ export function Editor() {
                   <button key={pkg.id} onClick={async () => {
                     if (!email) { setShowCreditWarning(false); setStep('email'); return; }
                     const res = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ packageId: pkg.id, email }) });
-                    const data = await res.json();
-                    if (data.url) window.location.href = data.url;
+                    const data = await res.json(); if (data.url) window.location.href = data.url;
                   }} className={cn("w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all text-left", pkg.popular ? "border-orange-500 bg-orange-50" : "border-slate-200 hover:border-orange-300")}>
                     <span className="font-bold text-slate-900">
                       {pkg.label}
@@ -667,6 +600,7 @@ export function Editor() {
         )}
       </AnimatePresence>
 
+      {/* Report Bad Result Modal */}
       <AnimatePresence>
         {showReportModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
