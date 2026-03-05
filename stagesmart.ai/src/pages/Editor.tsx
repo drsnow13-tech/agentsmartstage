@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, Wand2, Loader2, Download, RotateCcw, Sparkles, AlertCircle, Mail, CheckSquare, Square, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -16,12 +16,6 @@ interface EditOption {
   prompt: string;
 }
 
-interface GeneratedResult {
-  option: EditOption;
-  image: string;
-  generationId: string;
-}
-
 const TIPS = [
   "Twilight photos get 3x more saves on Zillow",
   "Virtual staging sells homes 73% faster on average",
@@ -31,12 +25,20 @@ const TIPS = [
   "Green lawn photos increase perceived home value",
 ];
 
+// ─── Shared Prompt Rules ──────────────────────────────────────────────────
+
+const CEILING_RULE = 'Keep all existing ceiling fixtures, ceiling fans, light fixtures, recessed lighting, and mounted ceiling elements exactly as they are — do not add, remove, or alter any ceiling-mounted items.';
+const ARCHWAY_RULE = 'CRITICAL: Keep ALL doorways, archways, open passages, stairways, and any opening between rooms 100% clear — never place any furniture, rugs, or objects within 3 feet of any opening, archway, or passage. This is non-negotiable.';
+const GAME_ROOM_LIGHT_RULE = 'CRITICAL: If a ceiling fan exists on the ceiling, do NOT add any pendant lights or hanging fixtures whatsoever — the ceiling must remain exactly as-is. Only add pendant lights if the ceiling is completely empty with no existing fixtures.';
+
+// ─── Enhancement Options ──────────────────────────────────────────────────
+
 const REMOVE_FURNITURE: EditOption = {
   id: 'remove-furniture',
   label: 'Remove All Furniture',
   description: 'Strip furniture, brighten & ready for staging',
   emoji: '🗑️',
-  prompt: 'Remove ALL existing furniture, rugs, curtains, and decor from this room completely. Keep walls, floors, baseboards, windows, doors, ceiling, fireplace, built-ins, and every architectural feature exactly identical. Keep all existing ceiling fixtures, ceiling fans, and mounted ceiling elements exactly as they are. Dramatically brighten the room — maximize natural light, warm white balance. Result: completely empty, bright, clean room ready for virtual staging. Professional real estate photography.'
+  prompt: `Remove ALL existing furniture, rugs, curtains, and decor from this room completely. Keep walls, floors, baseboards, windows, doors, ceiling, fireplace, built-ins, and every architectural feature exactly identical. ${CEILING_RULE} Dramatically brighten the room — maximize natural light, warm white balance. Result: completely empty, bright, clean room ready for virtual staging. Professional real estate photography.`
 };
 
 const REMOVE_CLUTTER: EditOption = {
@@ -73,50 +75,51 @@ const ROOM_OPTIONS: Record<string, EditOption[]> = {
     REMOVE_CLUTTER,
   ],
   'Living Room': [
-    { id: 'stage-lr', label: 'Stage as Living Room', description: 'Fully staged, brightened & MLS-ready', emoji: '🛋️', prompt: 'Photoreal warm and inviting living room virtual staging. CRITICAL RULES: (1) Keep ALL doorways, stairways, and entry paths 100% clear — never place furniture blocking any door or passage. (2) If fireplace present: fully visible, unobstructed, with a warm crackling fire burning. Place seating to face or flank it. (3) Room must feel full — no bare walls or empty corners — but never cluttered. FURNITURE: Large plush sofa in warm cream or camel leather against back or longest wall. One accent chair in complementary warm tone. Main seating faces the fireplace or focal wall, NOT blocking any door. Wood coffee table centered on rug styled with lacquered tray, two candles, a succulent, and a coffee table book. Two end tables each with a warm amber table lamp. Large area rug (9x12 minimum) under ALL seating with front legs on rug. PLANTS: Tall fiddle leaf fig (6ft) in ceramic pot in one corner. Medium monstera on a console or side table. WALLS: Large warm landscape or abstract painting above sofa. Two smaller framed botanical prints on adjacent wall. Fireplace mantle styled with candlesticks and greenery if present. SURFACES: Styled wood console against any bare wall with books, small plant, and objects. Cozy throw blanket on sofa arm. Decorative pillows in warm tones. Keep ALL walls, floors, windows, baseboards, ceiling, and every architectural detail exactly identical. Keep all existing ceiling fixtures, ceiling fans, light fixtures, recessed lighting, and mounted ceiling elements exactly as they are — do not add, remove, or alter any ceiling-mounted items. Warm natural light plus amber lamp glow. Wide-angle professional MLS real estate photography.' },
-    { id: 'stage-gr', label: 'Stage as Game Room', description: 'Fully staged, brightened & aspirational', emoji: '🎱', prompt: 'Photoreal warm and inviting game room virtual staging. CRITICAL: Keep ALL doorways, stairways, and passages 100% clear — never block any door or staircase. CENTER: Pool table or shuffleboard as hero piece centered in main floor area with hanging pendant lights directly above. WALL AREA: Stylish bar cabinet with backlit shelving, glassware, and bottles against one wall. Bar stools at counter if space. SEATING CORNER: 2-4 leather lounge chairs with small round table arranged in corner away from all pathways. WALLS: Bold framed sports art or large neon-style sign. Two to three smaller framed prints. Plants in dark ceramic pots. Edison bulb or pendant lighting for warm atmosphere. Keep ALL walls, floors, windows, and architectural details exactly identical. Keep all existing ceiling fixtures, ceiling fans, light fixtures, recessed lighting, and mounted ceiling elements exactly as they are — do not add, remove, or alter any ceiling-mounted items. Warm inviting lighting, professional real estate photography.' },
-    { id: 'stage-mr', label: 'Stage as Media Room', description: 'Fully staged, brightened & cinematic', emoji: '🎬', prompt: 'Photoreal warm and inviting media room virtual staging. CRITICAL: Keep ALL doorways and passages completely clear — never place furniture blocking any door or stairway. MEDIA WALL: Large framed TV or projection screen on primary wall with built-in or freestanding shelving flanking it with books, plants, speakers. PRIMARY SEATING: Large deep-seated sectional in dark grey, navy, or charcoal velvet positioned against back wall facing media wall — clear walking paths on both sides. Recliner chairs flanking sectional if space allows. Large area rug under all seating. LOW OTTOMAN or coffee table with popcorn bowl, remotes, candles. Side tables with warm amber lamps. Throw blankets on every seat. WALLS: Movie or abstract dark art. Sconce lighting on side walls. ATMOSPHERE: Warm dim amber glow, cinematic but inviting. Keep ALL walls, floors, windows, and architectural details exactly identical. Keep all existing ceiling fixtures, ceiling fans, light fixtures, recessed lighting, and mounted ceiling elements exactly as they are — do not add, remove, or alter any ceiling-mounted items. Professional real estate photography.' },
-    { id: 'stage-ho', label: 'Stage as Home Office', description: 'Fully staged, brightened & professional', emoji: '💼', prompt: 'Photoreal warm and inviting home office virtual staging. CRITICAL: Keep ALL doorways completely clear. Large executive desk in light oak or walnut positioned facing the room or angled toward window for natural light — never blocking a door. High-back upholstered desk chair in warm leather or cream. Built-in or freestanding bookshelves against walls filled with neatly organized books, small plants, framed photos, and decorative objects. One or two accent chairs for meetings in corner with small side table. PLANTS: Tall fiddle leaf fig or olive tree in one corner. Small succulents on desk and shelves. WALLS: Large framed architectural or landscape art above desk. Gallery wall of smaller frames on adjacent wall. LIGHTING: Warm desk lamp on desk. Floor lamp in corner. SURFACES: Desk styled with leather desk pad, pen holder, small plant, books. Keep ALL walls, floors, windows, and architectural details exactly identical. Keep all existing ceiling fixtures, ceiling fans, light fixtures, recessed lighting, and mounted ceiling elements exactly as they are — do not add, remove, or alter any ceiling-mounted items. Warm productive atmosphere, professional real estate photography.' },
+    { id: 'stage-lr', label: 'Stage as Living Room', description: 'Fully staged, brightened & MLS-ready', emoji: '🛋️', prompt: `Photoreal warm and inviting living room virtual staging. ${ARCHWAY_RULE} CRITICAL RULES: (1) If fireplace present: fully visible, unobstructed, with a warm crackling fire burning. Place seating to face or flank it. (2) Room must feel full — no bare walls or empty corners — but never cluttered. FURNITURE: Large plush sofa in warm cream or camel leather against back or longest wall. One accent chair in complementary warm tone. Main seating faces the fireplace or focal wall, NOT blocking any door. Wood coffee table centered on rug styled with lacquered tray, two candles, a succulent, and a coffee table book. Two end tables each with a warm amber table lamp. Large area rug (9x12 minimum) under ALL seating with front legs on rug. PLANTS: Tall fiddle leaf fig (6ft) in ceramic pot in one corner. Medium monstera on a console or side table. WALLS: Large warm landscape or abstract painting above sofa. Two smaller framed botanical prints on adjacent wall. Fireplace mantle styled with candlesticks and greenery if present. SURFACES: Styled wood console against any bare wall with books, small plant, and objects. Cozy throw blanket on sofa arm. Decorative pillows in warm tones. Keep ALL walls, floors, windows, baseboards, ceiling, and every architectural detail exactly identical. ${CEILING_RULE} Warm natural light plus amber lamp glow. Wide-angle professional MLS real estate photography.` },
+    { id: 'stage-gr', label: 'Stage as Game Room', description: 'Fully staged, brightened & aspirational', emoji: '🎱', prompt: `Photoreal warm and inviting game room virtual staging. ${ARCHWAY_RULE} CENTER: Pool table or shuffleboard as hero piece centered in main floor area. ${GAME_ROOM_LIGHT_RULE} WALL AREA: Stylish bar cabinet with backlit shelving, glassware, and bottles against one wall. Bar stools at counter if space. SEATING CORNER: 2-4 leather lounge chairs with small round table arranged in corner away from all pathways. WALLS: Bold framed sports art or large neon-style sign. Two to three smaller framed prints. Plants in dark ceramic pots. Edison bulb or pendant lighting for warm atmosphere. Keep ALL walls, floors, windows, and architectural details exactly identical. ${CEILING_RULE} Warm inviting lighting, professional real estate photography.` },
+    { id: 'stage-mr', label: 'Stage as Media Room', description: 'Fully staged, brightened & cinematic', emoji: '🎬', prompt: `Photoreal warm and inviting media room virtual staging. ${ARCHWAY_RULE} MEDIA WALL: Large framed TV or projection screen on primary wall with built-in or freestanding shelving flanking it with books, plants, speakers. PRIMARY SEATING: Large deep-seated sectional in dark grey, navy, or charcoal velvet positioned against back wall facing media wall — clear walking paths on both sides. Recliner chairs flanking sectional if space allows. Large area rug under all seating. LOW OTTOMAN or coffee table with popcorn bowl, remotes, candles. Side tables with warm amber lamps. Throw blankets on every seat. WALLS: Movie or abstract dark art. Sconce lighting on side walls. ATMOSPHERE: Warm dim amber glow, cinematic but inviting. Keep ALL walls, floors, windows, and architectural details exactly identical. ${CEILING_RULE} Professional real estate photography.` },
+    { id: 'stage-ho', label: 'Stage as Home Office', description: 'Fully staged, brightened & professional', emoji: '💼', prompt: `Photoreal warm and inviting home office virtual staging. ${ARCHWAY_RULE} Large executive desk in light oak or walnut positioned facing the room or angled toward window for natural light — never blocking a door. High-back upholstered desk chair in warm leather or cream. Built-in or freestanding bookshelves against walls filled with neatly organized books, small plants, framed photos, and decorative objects. One or two accent chairs for meetings in corner with small side table. PLANTS: Tall fiddle leaf fig or olive tree in one corner. Small succulents on desk and shelves. WALLS: Large framed architectural or landscape art above desk. Gallery wall of smaller frames on adjacent wall. LIGHTING: Warm desk lamp on desk. Floor lamp in corner. SURFACES: Desk styled with leather desk pad, pen holder, small plant, books. Keep ALL walls, floors, windows, and architectural details exactly identical. ${CEILING_RULE} Warm productive atmosphere, professional real estate photography.` },
     REMOVE_FURNITURE,
-    { id: 'declutter', label: 'Declutter & Clean', description: 'Personal items removed, photo brightened', emoji: '✨', prompt: 'Remove ALL personal items, clutter, and loose objects from this room — but keep all furniture in place. Remove: clothes, toys, personal photos, papers, mail, food items, excess decor. Keep all furniture, rugs, built-ins, and architectural features exactly identical. Dramatically brighten the result — maximize natural light, warm white balance, boost vibrancy. Result: clean, tidy, bright, depersonalized room. Professional real estate photography.' },
+    { id: 'declutter', label: 'Declutter & Clean', description: 'Personal items removed, photo brightened', emoji: '✨', prompt: `Remove ALL personal items, clutter, and loose objects from this room — but keep all furniture in place. Remove: clothes, toys, personal photos, papers, mail, food items, excess decor. Keep all furniture, rugs, built-ins, and architectural features exactly identical. ${CEILING_RULE} Dramatically brighten the result — maximize natural light, warm white balance, boost vibrancy. Result: clean, tidy, bright, depersonalized room. Professional real estate photography.` },
   ],
   'Dining Room': [
-    { id: 'stage-dr', label: 'Stage as Dining Room', description: 'Fully staged, brightened & elegant', emoji: '🍽️', prompt: 'Photoreal warm and inviting dining room virtual staging. CRITICAL: Keep all doorways and passages clear. RUG RULE: Area rug must extend at least 24 inches beyond all sides of the table. FURNITURE: Rectangular dining table in warm walnut or white oak seating 6. Six fully upholstered chairs in cream or warm taupe — two at each end, two per side. Large warm-toned patterned area rug centered under full table extending 24+ inches all sides. Statement chandelier or cluster pendant above table center with warm amber light. CENTERPIECE: Fresh white flowers or greenery in a low vase, two tall taper candles in brass candlesticks. WALLS: Large landscape or floral artwork on primary wall. Mirror or coordinating art on secondary wall. STORAGE: Sideboard or buffet against one wall, large mirror above it, small lamps on top, small plant. CORNERS: Tall fiddle leaf fig or bird of paradise in at least one corner. Keep ALL walls, floors, windows, and architecture exactly identical. Keep all existing ceiling fixtures, ceiling fans, light fixtures, recessed lighting, and mounted ceiling elements exactly as they are — do not add, remove, or alter any ceiling-mounted items. Warm inviting lighting, MLS-ready real estate photography.' },
-    { id: 'stage-bn', label: 'Stage as Breakfast Nook', description: 'Fully staged, brightened & cozy', emoji: '☕', prompt: 'Photoreal warm and inviting breakfast nook virtual staging. CRITICAL: Keep all doorways clear. Transform this space into a cozy casual dining area. FURNITURE: A round or small rectangular table in light oak or white with 2-4 chairs in rattan, bentwood, or cushioned linen. Simple area rug under table extending beyond all sides. CENTERPIECE: Small vase of fresh wildflowers, a candle, a small plant. WALLS: Simple framed art or chalkboard. Small open shelving with mugs, plants, and decor. WINDOWS: Potted herb garden on windowsill if window nearby. ATMOSPHERE: Bright, airy, casual — like a coffee shop corner. Keep ALL walls, floors, windows, and architecture exactly identical. Keep all existing ceiling fixtures, ceiling fans, light fixtures, recessed lighting, and mounted ceiling elements exactly as they are — do not add, remove, or alter any ceiling-mounted items. Bright warm morning light, professional real estate photography.' },
+    { id: 'stage-dr', label: 'Stage as Dining Room', description: 'Fully staged, brightened & elegant', emoji: '🍽️', prompt: `Photoreal warm and inviting dining room virtual staging. ${ARCHWAY_RULE} RUG RULE: Area rug must extend at least 24 inches beyond all sides of the table. FURNITURE: Rectangular dining table in warm walnut or white oak seating 6. Six fully upholstered chairs in cream or warm taupe — two at each end, two per side. Large warm-toned patterned area rug centered under full table extending 24+ inches all sides. Statement chandelier or cluster pendant above table center with warm amber light. CENTERPIECE: Fresh white flowers or greenery in a low vase, two tall taper candles in brass candlesticks. WALLS: Large landscape or floral artwork on primary wall. Mirror or coordinating art on secondary wall. STORAGE: Sideboard or buffet against one wall, large mirror above it, small lamps on top, small plant. CORNERS: Tall fiddle leaf fig or bird of paradise in at least one corner. Keep ALL walls, floors, windows, and architecture exactly identical. ${CEILING_RULE} Warm inviting lighting, MLS-ready real estate photography.` },
+    { id: 'stage-bn', label: 'Stage as Breakfast Nook', description: 'Fully staged, brightened & cozy', emoji: '☕', prompt: `Photoreal warm and inviting breakfast nook virtual staging. ${ARCHWAY_RULE} Transform this space into a cozy casual dining area. FURNITURE: A round or small rectangular table in light oak or white with 2-4 chairs in rattan, bentwood, or cushioned linen. Simple area rug under table extending beyond all sides. CENTERPIECE: Small vase of fresh wildflowers, a candle, a small plant. WALLS: Simple framed art or chalkboard. Small open shelving with mugs, plants, and decor. WINDOWS: Potted herb garden on windowsill if window nearby. ATMOSPHERE: Bright, airy, casual — like a coffee shop corner. Keep ALL walls, floors, windows, and architecture exactly identical. ${CEILING_RULE} Bright warm morning light, professional real estate photography.` },
     REMOVE_FURNITURE,
-    { id: 'declutter', label: 'Declutter & Clean', description: 'Personal items removed, photo brightened', emoji: '✨', prompt: 'Remove ALL personal items and clutter from this dining room — but keep all furniture in place. Dramatically brighten the result — maximize natural light, warm white balance, boost vibrancy. Result: clean, tidy, bright, depersonalized space. Professional real estate photography.' },
+    { id: 'declutter', label: 'Declutter & Clean', description: 'Personal items removed, photo brightened', emoji: '✨', prompt: `Remove ALL personal items and clutter from this dining room — but keep all furniture in place. ${CEILING_RULE} Dramatically brighten the result — maximize natural light, warm white balance, boost vibrancy. Result: clean, tidy, bright, depersonalized space. Professional real estate photography.` },
   ],
   Kitchen: [
-    { id: 'stage-warm', label: 'Warm & Styled', description: 'Styled, decluttered & brightened', emoji: '🍳', prompt: 'Photoreal warm and inviting kitchen staging. First remove ALL clutter from every countertop — appliances, dishes, papers, everything. Then add curated lifestyle styling: Near window: small terracotta pot with fresh herbs. On main counter: wooden end-grain cutting board leaned against backsplash, ceramic crock with wooden spoons, bowl of fresh lemons or green apples. Near sink: small glass vase with fresh flowers or greenery. On any open shelving: neatly stacked plates, small plants, cookbooks. Folded linen dish towel over oven handle. Keep ALL cabinets, appliances, countertops, backsplash, sink, hardware, and every architectural detail exactly identical. Warm bright professional real estate photography.' },
-    { id: 'brighten', label: 'Brighten & Enhance', description: 'Photo brightened, colors enhanced', emoji: '💫', prompt: 'Dramatically brighten this kitchen. Make it look as light and airy as possible. Enhance natural light through windows. Improve white balance to warm and clean. Make white cabinets look crisp, countertops look bright and clean, stainless steel look polished. Reduce all shadows especially under upper cabinets. Keep ALL cabinets, appliances, countertops, backsplash, sink, and every architectural element exactly identical. Professional real estate photography.' },
-    { id: 'declutter', label: 'Declutter Countertops', description: 'Clean counters, photo brightened', emoji: '🧹', prompt: 'Remove ALL items from countertops — every small appliance, dishes, food, papers, personal items, everything. Keep all built-in appliances, cabinets, countertops, backsplash, sink, faucet, and all architectural features exactly identical. Add only: one small potted herb and one small bowl of fresh fruit. Result: clean, spacious, minimally styled countertops. Professional real estate photography.' },
+    { id: 'stage-warm', label: 'Warm & Styled', description: 'Styled, decluttered & brightened', emoji: '🍳', prompt: `Photoreal warm and inviting kitchen staging. First remove ALL clutter from every countertop — appliances, dishes, papers, everything. Then add curated lifestyle styling: Near window: small terracotta pot with fresh herbs. On main counter: wooden end-grain cutting board leaned against backsplash, ceramic crock with wooden spoons, bowl of fresh lemons or green apples. Near sink: small glass vase with fresh flowers or greenery. On any open shelving: neatly stacked plates, small plants, cookbooks. Folded linen dish towel over oven handle. Keep ALL cabinets, appliances, countertops, backsplash, sink, hardware, and every architectural detail exactly identical. ${CEILING_RULE} Warm bright professional real estate photography.` },
+    { id: 'brighten', label: 'Brighten & Enhance', description: 'Photo brightened, colors enhanced', emoji: '💫', prompt: `Dramatically brighten this kitchen. Make it look as light and airy as possible. Enhance natural light through windows. Improve white balance to warm and clean. Make white cabinets look crisp, countertops look bright and clean, stainless steel look polished. Reduce all shadows especially under upper cabinets. Keep ALL cabinets, appliances, countertops, backsplash, sink, and every architectural element exactly identical. ${CEILING_RULE} Professional real estate photography.` },
+    { id: 'declutter', label: 'Declutter Countertops', description: 'Clean counters, photo brightened', emoji: '🧹', prompt: `Remove ALL items from countertops — every small appliance, dishes, food, papers, personal items, everything. Keep all built-in appliances, cabinets, countertops, backsplash, sink, faucet, and all architectural features exactly identical. ${CEILING_RULE} Add only: one small potted herb and one small bowl of fresh fruit. Result: clean, spacious, minimally styled countertops. Professional real estate photography.` },
   ],
   Bedroom: [
-    { id: 'stage-bed', label: 'Stage as Bedroom', description: 'Fully staged, brightened & luxurious', emoji: '🛏️', prompt: 'Photoreal warm and inviting master bedroom virtual staging. CRITICAL: Keep all doorways completely clear — never block any door with furniture. Room must feel full and complete — no bare walls, no empty corners. BED: King or queen upholstered headboard in cream, warm grey, or camel velvet against main wall, never blocking a door or window. Hotel-quality layered bedding: crisp white duvet, warm-toned linen coverlet folded back 1/3. Three Euro shams stacked, two standard shams in front, two to three decorative throw pillows. Chunky-knit throw blanket folded at foot of bed. NIGHTSTANDS: Two matching wood nightstands, each with a warm amber table lamp, small stack of books, small potted plant or fresh flowers on one side. RUG: Large soft area rug (9x12 minimum) centered under bed extending 24 inches beyond foot and 18 inches beyond both sides. PLANTS: Tall fiddle leaf fig (5-6ft) in woven ceramic pot in one corner. WALLS: Large framed art above headboard in warm tones. One or two smaller coordinating frames on adjacent wall. ADDITIONAL: Upholstered bench at foot of bed. Dresser or accent chair in another corner. Keep ALL walls, floors, windows, and every architectural detail exactly identical. Warm natural light plus warm lamp glow. Wide-angle professional MLS real estate photography.' },
-    { id: 'stage-nursery', label: 'Stage as Nursery', description: 'Fully staged, brightened & sweet', emoji: '🍼', prompt: 'Photoreal warm and inviting nursery virtual staging. CRITICAL: Keep all doorways completely clear. FURNITURE: White or natural wood crib with white fitted sheet and soft patterned crib skirt against main wall, never blocking a door. White or light wood dresser/changing table against another wall. Plush upholstered rocking chair or glider in cream or soft grey in one corner with small side table holding a lamp. Large soft area rug in a gentle geometric or animal pattern. WALLS: Sweet framed art — animal prints, alphabet letters, or watercolor botanicals. One large piece above crib, two smaller on side wall. Name sign above crib. PLANTS: Small non-toxic plant on dresser. TEXTILES: Soft mobile above crib. Folded blankets in a basket. Warm ambient lamp light. Keep ALL walls, floors, windows, and architectural details exactly identical. Soft warm gentle lighting, professional real estate photography.' },
-    { id: 'stage-ho', label: 'Stage as Home Office', description: 'Professional, warm, productive', emoji: '💼', prompt: 'Photoreal warm and inviting home office virtual staging. CRITICAL: Keep ALL doorways completely clear. Large executive desk in light oak or walnut positioned to face the room or angled toward window — never blocking any door. Upholstered desk chair in warm leather. Bookshelves against walls with books, plants, framed photos. Accent chairs in corner. Tall fiddle leaf fig in corner. Small plants on desk and shelves. Large art above desk, gallery wall on adjacent wall. Warm desk lamp and floor lamp. Keep ALL walls, floors, windows, and architecture exactly identical. Warm productive atmosphere, professional real estate photography.' },
+    { id: 'stage-bed', label: 'Stage as Bedroom', description: 'Fully staged, brightened & luxurious', emoji: '🛏️', prompt: `Photoreal warm and inviting master bedroom virtual staging. ${ARCHWAY_RULE} Room must feel full and complete — no bare walls, no empty corners. BED: King or queen upholstered headboard in cream, warm grey, or camel velvet against main wall, never blocking a door or window. Hotel-quality layered bedding: crisp white duvet, warm-toned linen coverlet folded back 1/3. Three Euro shams stacked, two standard shams in front, two to three decorative throw pillows. Chunky-knit throw blanket folded at foot of bed. NIGHTSTANDS: Two matching wood nightstands, each with a warm amber table lamp, small stack of books, small potted plant or fresh flowers on one side. RUG: Large soft area rug (9x12 minimum) centered under bed extending 24 inches beyond foot and 18 inches beyond both sides. PLANTS: Tall fiddle leaf fig (5-6ft) in woven ceramic pot in one corner. WALLS: Large framed art above headboard in warm tones. One or two smaller coordinating frames on adjacent wall. ADDITIONAL: Upholstered bench at foot of bed. Dresser or accent chair in another corner. Keep ALL walls, floors, windows, and every architectural detail exactly identical. ${CEILING_RULE} Warm natural light plus warm lamp glow. Wide-angle professional MLS real estate photography.` },
+    { id: 'stage-nursery', label: 'Stage as Nursery', description: 'Fully staged, brightened & sweet', emoji: '🍼', prompt: `Photoreal warm and inviting nursery virtual staging. ${ARCHWAY_RULE} FURNITURE: White or natural wood crib with white fitted sheet and soft patterned crib skirt against main wall, never blocking a door. White or light wood dresser/changing table against another wall. Plush upholstered rocking chair or glider in cream or soft grey in one corner with small side table holding a lamp. Large soft area rug in a gentle geometric or animal pattern. WALLS: Sweet framed art — animal prints, alphabet letters, or watercolor botanicals. One large piece above crib, two smaller on side wall. Name sign above crib. PLANTS: Small non-toxic plant on dresser. TEXTILES: Soft mobile above crib. Folded blankets in a basket. Warm ambient lamp light. Keep ALL walls, floors, windows, and architectural details exactly identical. ${CEILING_RULE} Soft warm gentle lighting, professional real estate photography.` },
+    { id: 'stage-ho', label: 'Stage as Home Office', description: 'Professional, warm, productive', emoji: '💼', prompt: `Photoreal warm and inviting home office virtual staging. ${ARCHWAY_RULE} Large executive desk in light oak or walnut positioned to face the room or angled toward window — never blocking any door. Upholstered desk chair in warm leather. Bookshelves against walls with books, plants, framed photos. Accent chairs in corner. Tall fiddle leaf fig in corner. Small plants on desk and shelves. Large art above desk, gallery wall on adjacent wall. Warm desk lamp and floor lamp. Keep ALL walls, floors, windows, and architecture exactly identical. ${CEILING_RULE} Warm productive atmosphere, professional real estate photography.` },
     REMOVE_FURNITURE,
-    { id: 'declutter', label: 'Declutter & Clean', description: 'Personal items removed, photo brightened', emoji: '✨', prompt: 'Remove ALL personal items, clutter, clothes, laundry, and loose items from this bedroom — but keep all furniture in place. Dramatically brighten the result — maximize natural light, warm white balance, make white bedding crisp. Result: clean, tidy, bright, depersonalized bedroom. Professional real estate photography.' },
+    { id: 'declutter', label: 'Declutter & Clean', description: 'Personal items removed, photo brightened', emoji: '✨', prompt: `Remove ALL personal items, clutter, clothes, laundry, and loose items from this bedroom — but keep all furniture in place. ${CEILING_RULE} Dramatically brighten the result — maximize natural light, warm white balance, make white bedding crisp. Result: clean, tidy, bright, depersonalized bedroom. Professional real estate photography.` },
   ],
   Bathroom: [
-    { id: 'stage-spa', label: 'Spa-Like Styling', description: 'Staged, styled, brightened & spa-like', emoji: '🛁', prompt: 'Photoreal warm and inviting spa-style bathroom virtual staging. TOWELS: Fluffy white towels neatly arranged on towel bar or ladder rack. Hand towels folded precisely over towel rings. VANITY: Clear all clutter completely. Add: small glass tray with a diffuser, small air plant or pothos in simple pot, designer hand soap dispenser. BATHTUB if present: sparkling clean with wooden tub tray holding a white candle, small plant, and folded white washcloth. SHOWER: Clean bright glass. PLANTS: Small pothos or fern on vanity edge or windowsill. Snake plant in corner if space allows. WALLS: One small framed botanical print on bare wall. LIGHTING: Bright flattering vanity lights fully on. Keep ALL tile, fixtures, vanity cabinets, tub, shower, mirror, and all architectural elements exactly identical. Keep all existing ceiling fixtures, ceiling fans, light fixtures, recessed lighting, and mounted ceiling elements exactly as they are — do not add, remove, or alter any ceiling-mounted items. Bright warm professional real estate photography.' },
-    { id: 'brighten', label: 'Brighten & Enhance', description: 'Clean, bright, sparkling fresh', emoji: '💫', prompt: 'Dramatically brighten this bathroom. Make tile grout look clean and white. Make fixtures look polished and sparkling. Make mirror look crystal clear. Enhance vanity lighting. Make the space feel clean, fresh, and well-maintained. Keep ALL tile, fixtures, vanity, tub, shower, mirror, and all architectural elements exactly identical. Professional real estate photography.' },
-    { id: 'declutter', label: 'Declutter & Clean', description: 'Personal items removed, photo brightened', emoji: '🧹', prompt: 'Remove ALL personal items — toiletries, shampoo bottles, razors, makeup, used towels, items on vanity counter, items in shower. Keep all fixtures, tile, vanity cabinets, tub, shower, mirror, toilet, and architectural features exactly identical. Add only: neatly folded white towels on towel bar, a small plant on vanity. Brighten the result. Clean, depersonalized, spa-like result. Professional real estate photography.' },
+    { id: 'stage-spa', label: 'Spa-Like Styling', description: 'Staged, styled, brightened & spa-like', emoji: '🛁', prompt: `Photoreal warm and inviting spa-style bathroom virtual staging. TOWELS: Fluffy white towels neatly arranged on towel bar or ladder rack. Hand towels folded precisely over towel rings. VANITY: Clear all clutter completely. Add: small glass tray with a diffuser, small air plant or pothos in simple pot, designer hand soap dispenser. BATHTUB if present: sparkling clean with wooden tub tray holding a white candle, small plant, and folded white washcloth. SHOWER: Clean bright glass. PLANTS: Small pothos or fern on vanity edge or windowsill. Snake plant in corner if space allows. WALLS: One small framed botanical print on bare wall. LIGHTING: Bright flattering vanity lights fully on. Keep ALL tile, fixtures, vanity cabinets, tub, shower, mirror, and all architectural elements exactly identical. ${CEILING_RULE} Bright warm professional real estate photography.` },
+    { id: 'brighten', label: 'Brighten & Enhance', description: 'Clean, bright, sparkling fresh', emoji: '💫', prompt: `Dramatically brighten this bathroom. Make tile grout look clean and white. Make fixtures look polished and sparkling. Make mirror look crystal clear. Enhance vanity lighting. Make the space feel clean, fresh, and well-maintained. Keep ALL tile, fixtures, vanity, tub, shower, mirror, and all architectural elements exactly identical. ${CEILING_RULE} Professional real estate photography.` },
+    { id: 'declutter', label: 'Declutter & Clean', description: 'Personal items removed, photo brightened', emoji: '🧹', prompt: `Remove ALL personal items — toiletries, shampoo bottles, razors, makeup, used towels, items on vanity counter, items in shower. Keep all fixtures, tile, vanity cabinets, tub, shower, mirror, toilet, and architectural features exactly identical. ${CEILING_RULE} Add only: neatly folded white towels on towel bar, a small plant on vanity. Brighten the result. Clean, depersonalized, spa-like result. Professional real estate photography.` },
   ],
   'Home Office': [
-    { id: 'stage-office', label: 'Stage as Home Office', description: 'Professional, warm, productive', emoji: '💼', prompt: 'Photoreal warm and inviting home office virtual staging. CRITICAL: Keep ALL doorways completely clear. LAYOUT: Large executive desk in light oak or walnut positioned facing the room or angled toward window for natural light — never blocking any door. High-back upholstered desk chair in warm leather or cream fabric. Built-in or freestanding bookshelves against one or two walls filled with neatly organized books, small plants, framed photos, and decorative objects. One or two accent chairs for meetings in corner with small side table. PLANTS: Tall fiddle leaf fig or olive tree in corner. Small succulents on desk and shelves. WALLS: Large framed architectural or landscape art above desk. Gallery wall of smaller frames on adjacent wall. LIGHTING: Warm desk lamp on desk. Floor lamp in corner giving warm ambient light. SURFACES: Desk styled with leather desk pad, pen holder, small plant, and books. Keep ALL walls, floors, windows, and architectural details exactly identical. Keep all existing ceiling fixtures, ceiling fans, light fixtures, recessed lighting, and mounted ceiling elements exactly as they are — do not add, remove, or alter any ceiling-mounted items. Warm productive atmosphere, professional real estate photography.' },
-    { id: 'stage-bed', label: 'Stage as Bedroom', description: 'Fully staged, brightened & guest-ready', emoji: '🛏️', prompt: 'Photoreal warm and inviting bedroom virtual staging. CRITICAL: Keep all doorways completely clear — never block any door with furniture. BED: Queen upholstered headboard in cream or warm grey against main wall, never blocking a door. Hotel-quality layered white bedding with warm-toned coverlet folded back 1/3. Euro shams, decorative pillows, chunky throw at foot. NIGHTSTANDS: Two matching nightstands with warm amber lamps, books, small plant. RUG: Large soft area rug under bed extending 24 inches beyond foot and 18 inches beyond sides. PLANTS: Fiddle leaf fig in corner. WALLS: Large framed art above headboard. Smaller frames on adjacent wall. ADDITIONAL: Upholstered bench at foot of bed. Keep ALL walls, floors, windows, and architectural details exactly identical. Keep all existing ceiling fixtures, ceiling fans, light fixtures, recessed lighting, and mounted ceiling elements exactly as they are — do not add, remove, or alter any ceiling-mounted items. Warm natural light plus lamp glow. Professional MLS real estate photography.' },
+    { id: 'stage-office', label: 'Stage as Home Office', description: 'Professional, warm, productive', emoji: '💼', prompt: `Photoreal warm and inviting home office virtual staging. ${ARCHWAY_RULE} LAYOUT: Large executive desk in light oak or walnut positioned facing the room or angled toward window for natural light — never blocking any door. High-back upholstered desk chair in warm leather or cream fabric. Built-in or freestanding bookshelves against one or two walls filled with neatly organized books, small plants, framed photos, and decorative objects. One or two accent chairs for meetings in corner with small side table. PLANTS: Tall fiddle leaf fig or olive tree in corner. Small succulents on desk and shelves. WALLS: Large framed architectural or landscape art above desk. Gallery wall of smaller frames on adjacent wall. LIGHTING: Warm desk lamp on desk. Floor lamp in corner giving warm ambient light. SURFACES: Desk styled with leather desk pad, pen holder, small plant, and books. Keep ALL walls, floors, windows, and architectural details exactly identical. ${CEILING_RULE} Warm productive atmosphere, professional real estate photography.` },
+    { id: 'stage-bed', label: 'Stage as Bedroom', description: 'Fully staged, brightened & guest-ready', emoji: '🛏️', prompt: `Photoreal warm and inviting bedroom virtual staging. ${ARCHWAY_RULE} BED: Queen upholstered headboard in cream or warm grey against main wall, never blocking a door. Hotel-quality layered white bedding with warm-toned coverlet folded back 1/3. Euro shams, decorative pillows, chunky throw at foot. NIGHTSTANDS: Two matching nightstands with warm amber lamps, books, small plant. RUG: Large soft area rug under bed extending 24 inches beyond foot and 18 inches beyond sides. PLANTS: Fiddle leaf fig in corner. WALLS: Large framed art above headboard. Smaller frames on adjacent wall. ADDITIONAL: Upholstered bench at foot of bed. Keep ALL walls, floors, windows, and architectural details exactly identical. ${CEILING_RULE} Warm natural light plus lamp glow. Professional MLS real estate photography.` },
     REMOVE_FURNITURE,
   ],
   Other: [
-    { id: 'stage-lr', label: 'Stage as Living Room', description: 'Warm, styled, ready to sell', emoji: '🛋️', prompt: 'Photoreal warm and inviting living room virtual staging. CRITICAL: Keep ALL doorways, stairways, and passages 100% clear — never block any door or staircase. If fireplace present: fully visible with warm crackling fire, seating faces it. Room must feel full — no bare walls or empty corners. Large plush sofa in warm cream or camel against back or longest wall. Accent chair in complementary tone. Coffee table with tray, candles, succulent, book. Two end tables with warm amber lamps. Large 9x12 area rug under all seating. Console table against any bare wall styled with books, plant, decor. Tall fiddle leaf fig in corner. Medium monstera on surface. Large warm landscape painting above sofa. Two botanical prints on adjacent wall. Throw blanket and decorative pillows in warm tones. Keep ALL walls, floors, windows, and architecture exactly identical. Warm professional MLS real estate photography.' },
-    { id: 'stage-gr', label: 'Stage as Game Room', description: 'Fun, social, aspirational', emoji: '🎱', prompt: 'Photoreal warm and inviting game room virtual staging. CRITICAL: Keep ALL doorways, stairways, and passages 100% clear — never block any door or staircase. Pool table or shuffleboard centered as hero piece with pendant lights above. Bar cabinet with backlit shelving and glassware against one wall. Bar stools at counter. 2-4 leather lounge chairs with small round table in corner away from all pathways. Bold sports art or neon sign on walls. Plants in dark ceramic pots. Edison bulb lighting for warm atmosphere. Keep ALL walls, floors, windows, and architectural details exactly identical. Keep all existing ceiling fixtures, ceiling fans, light fixtures, recessed lighting, and mounted ceiling elements exactly as they are — do not add, remove, or alter any ceiling-mounted items. Warm inviting lighting, professional real estate photography.' },
-    { id: 'stage-mr', label: 'Stage as Media Room', description: 'Theater-style, cozy, cinematic', emoji: '🎬', prompt: 'Photoreal warm and inviting media room virtual staging. CRITICAL: Keep ALL doorways and stairways completely clear — never block any passage. Large framed TV on primary wall with flanking shelving. Large deep-seated sectional in dark grey or navy against back wall facing TV — clear walking paths on both sides. Large area rug under all seating. Low ottoman with popcorn bowl, remotes, candles. Side tables with warm amber lamps. Throw blankets on every seat. Warm dim amber atmosphere. Keep ALL walls, floors, windows, and architectural details exactly identical. Keep all existing ceiling fixtures, ceiling fans, light fixtures, recessed lighting, and mounted ceiling elements exactly as they are — do not add, remove, or alter any ceiling-mounted items. Professional real estate photography.' },
-    { id: 'stage-ho', label: 'Stage as Home Office', description: 'Professional, warm, productive', emoji: '💼', prompt: 'Photoreal warm and inviting home office virtual staging. CRITICAL: Keep ALL doorways completely clear. Large executive desk facing room or angled toward window — never blocking any door. Upholstered desk chair in warm leather. Bookshelves against walls. Accent chairs in corner. Tall fiddle leaf fig in corner. Small plants on desk and shelves. Large art above desk, gallery wall on adjacent wall. Warm desk lamp and floor lamp. Keep ALL walls, floors, windows, and architecture exactly identical. Warm productive atmosphere, professional real estate photography.' },
+    { id: 'stage-lr', label: 'Stage as Living Room', description: 'Warm, styled, ready to sell', emoji: '🛋️', prompt: `Photoreal warm and inviting living room virtual staging. ${ARCHWAY_RULE} If fireplace present: fully visible with warm crackling fire, seating faces it. Room must feel full — no bare walls or empty corners. Large plush sofa in warm cream or camel against back or longest wall. Accent chair in complementary tone. Coffee table with tray, candles, succulent, book. Two end tables with warm amber lamps. Large 9x12 area rug under all seating. Console table against any bare wall styled with books, plant, decor. Tall fiddle leaf fig in corner. Medium monstera on surface. Large warm landscape painting above sofa. Two botanical prints on adjacent wall. Throw blanket and decorative pillows in warm tones. Keep ALL walls, floors, windows, and architecture exactly identical. ${CEILING_RULE} Warm professional MLS real estate photography.` },
+    { id: 'stage-gr', label: 'Stage as Game Room', description: 'Fun, social, aspirational', emoji: '🎱', prompt: `Photoreal warm and inviting game room virtual staging. ${ARCHWAY_RULE} Pool table or shuffleboard centered as hero piece. ${GAME_ROOM_LIGHT_RULE} Bar cabinet with backlit shelving and glassware against one wall. Bar stools at counter. 2-4 leather lounge chairs with small round table in corner away from all pathways. Bold sports art or neon sign on walls. Plants in dark ceramic pots. Edison bulb lighting for warm atmosphere. Keep ALL walls, floors, windows, and architectural details exactly identical. ${CEILING_RULE} Warm inviting lighting, professional real estate photography.` },
+    { id: 'stage-mr', label: 'Stage as Media Room', description: 'Theater-style, cozy, cinematic', emoji: '🎬', prompt: `Photoreal warm and inviting media room virtual staging. ${ARCHWAY_RULE} Large framed TV on primary wall with flanking shelving. Large deep-seated sectional in dark grey or navy against back wall facing TV — clear walking paths on both sides. Large area rug under all seating. Low ottoman with popcorn bowl, remotes, candles. Side tables with warm amber lamps. Throw blankets on every seat. Warm dim amber atmosphere. Keep ALL walls, floors, windows, and architectural details exactly identical. ${CEILING_RULE} Professional real estate photography.` },
+    { id: 'stage-ho', label: 'Stage as Home Office', description: 'Professional, warm, productive', emoji: '💼', prompt: `Photoreal warm and inviting home office virtual staging. ${ARCHWAY_RULE} Large executive desk facing room or angled toward window — never blocking any door. Upholstered desk chair in warm leather. Bookshelves against walls. Accent chairs in corner. Tall fiddle leaf fig in corner. Small plants on desk and shelves. Large art above desk, gallery wall on adjacent wall. Warm desk lamp and floor lamp. Keep ALL walls, floors, windows, and architecture exactly identical. ${CEILING_RULE} Warm productive atmosphere, professional real estate photography.` },
     REMOVE_FURNITURE,
-    { id: 'declutter', label: 'Declutter & Clean', description: 'Remove furniture, personal items', emoji: '🧹', prompt: 'Remove ALL existing furniture, personal items, decor, and clutter. Keep walls, floors, windows, doors, ceiling, and all architectural features exactly identical. Brighten the room. Result: completely empty, bright, clean room. Professional real estate photography.' },
+    { id: 'declutter', label: 'Declutter & Clean', description: 'Remove furniture, personal items', emoji: '🧹', prompt: `Remove ALL existing furniture, personal items, decor, and clutter. Keep walls, floors, windows, doors, ceiling, and all architectural features exactly identical. ${CEILING_RULE} Brighten the room. Result: completely empty, bright, clean room. Professional real estate photography.` },
   ],
 };
+
 function getOptions(roomType: RoomType | null): EditOption[] {
   if (!roomType) return ROOM_OPTIONS['Other'];
   return (ROOM_OPTIONS as any)[roomType] || ROOM_OPTIONS['Other'];
@@ -124,19 +127,19 @@ function getOptions(roomType: RoomType | null): EditOption[] {
 
 function getGreeting(roomType: RoomType | null): string {
   const greetings: Record<string, string> = {
-    'Exterior': "Exterior detected. Choose your enhancements — one credit for the full set.",
-    'Backyard': "Backyard detected. Pick your enhancements — one credit for all selected.",
-    'Rooftop Terrace': "Rooftop terrace detected. How do you want to transform this space?",
-    'Balcony': "Balcony or courtyard detected. Choose your enhancements — one credit for all.",
-    'Living Room': "Living room detected. How do you want to stage this space?",
-    'Dining Room': "Dining room detected. How do you want to stage this space?",
-    'Kitchen': "Kitchen detected. Select enhancements — one credit for all selected.",
-    'Bedroom': "Bedroom detected. How do you want to stage this space?",
-    'Bathroom': "Bathroom detected. Select enhancements — one credit for all.",
-    'Home Office': "Home office detected. How do you want to stage this space?",
-    'Other': "Large or flex space detected. How do you want to stage this space?",
+    'Exterior': "Exterior detected — choose an enhancement below.",
+    'Backyard': "Backyard detected — pick an enhancement below.",
+    'Rooftop Terrace': "Rooftop terrace detected — how do you want to transform this space?",
+    'Balcony': "Balcony detected — choose an enhancement below.",
+    'Living Room': "Living room detected — how do you want to stage this space?",
+    'Dining Room': "Dining room detected — how do you want to stage this space?",
+    'Kitchen': "Kitchen detected — select an enhancement below.",
+    'Bedroom': "Bedroom detected — how do you want to stage this space?",
+    'Bathroom': "Bathroom detected — select an enhancement below.",
+    'Home Office': "Home office detected — how do you want to stage this space?",
+    'Other': "Large or flex space detected — how do you want to stage this space?",
   };
-  return roomType ? (greetings[roomType] || greetings['Other']) : "How do you want to stage this space? — one credit for the full set.";
+  return roomType ? (greetings[roomType] || greetings['Other']) : "How do you want to stage this space?";
 }
 
 function addWatermarkToImage(imageDataUrl: string, text: string): Promise<string> {
@@ -167,14 +170,21 @@ function addWatermarkToImage(imageDataUrl: string, text: string): Promise<string
   });
 }
 
+// ─── Component ─────────────────────────────────────────────────────────────
+
 export function Editor() {
   const [step, setStep] = useState<Step>('upload');
   const [originalImage, setOriginalImage] = useState<string | null>(null);
+  const [base64Image, setBase64Image] = useState<string | null>(null); // base64 for API calls
   const [roomType, setRoomType] = useState<RoomType | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [selectedOptions, setSelectedOptions] = useState<Set<string>>(new Set());
-  const [results, setResults] = useState<GeneratedResult[]>([]);
-  const [activeResult, setActiveResult] = useState<GeneratedResult | null>(null);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+
+  // 4-tile state
+  const [tileImages, setTileImages] = useState<string[]>([]);
+  const [selectedTile, setSelectedTile] = useState(0);
+  const [hasDownloaded, setHasDownloaded] = useState(false);
+
   const [credits, setCredits] = useState(0);
   const [email, setEmail] = useState('');
   const [emailInput, setEmailInput] = useState('');
@@ -182,11 +192,12 @@ export function Editor() {
   const [error, setError] = useState<string | null>(null);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [generatingProgress, setGeneratingProgress] = useState(0);
-const [currentTip, setCurrentTip] = useState(0);
+  const [currentTip, setCurrentTip] = useState(0);
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
-  // Restore session and handle payment success on mount
+  // ─── Session Restore + Post-Payment ────────────────────────────────────
+
   useEffect(() => {
     const saved = localStorage.getItem('ssa_email');
     if (saved) {
@@ -200,6 +211,19 @@ const [currentTip, setCurrentTip] = useState(0);
       setShowSuccessToast(true);
       window.history.replaceState({}, '', '/editor');
       setTimeout(() => setShowSuccessToast(false), 5000);
+      // FIX: Longer delay for webhook to process before refreshing credits
+      const emailToRefresh = saved || localStorage.getItem('ssa_email');
+      if (emailToRefresh) {
+        // Try multiple times to catch webhook processing
+        [2000, 5000, 10000].forEach(delay => {
+          setTimeout(() => {
+            fetch('/api/user?email=' + encodeURIComponent(emailToRefresh))
+              .then(r => r.json())
+              .then(d => { if (d.credits !== undefined) setCredits(d.credits); })
+              .catch(() => {});
+          }, delay);
+        });
+      }
     }
   }, []);
 
@@ -211,6 +235,8 @@ const [currentTip, setCurrentTip] = useState(0);
     }, 4000);
     return () => clearInterval(interval);
   }, [step]);
+
+  // ─── Image Compression ─────────────────────────────────────────────────
 
   const compressImage = (file: File): Promise<File> => {
     return new Promise((resolve) => {
@@ -237,30 +263,53 @@ const [currentTip, setCurrentTip] = useState(0);
     });
   };
 
-  const processFile = useCallback(async (file: File) => {
-    if (!file) return;
-    setError(null);
-    setSelectedOptions(new Set());
-    setResults([]);
-    
-    const compressed = await compressImage(file);
-    const previewUrl = URL.createObjectURL(compressed);
-    setOriginalImage(previewUrl);
-    setCurrentFile(compressed);
+  // Convert file to base64 data URI
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
 
-    if (!email) { setStep('email'); return; }
+  // ─── Analyze Room ──────────────────────────────────────────────────────
 
+  const analyzeRoom = useCallback(async (file: File) => {
     setIsAnalyzing(true);
-    setStep('options');
     try {
       const formData = new FormData();
-      formData.append('image', compressed);
+      formData.append('image', file);
       const res = await fetch('/api/analyze', { method: 'POST', body: formData });
       const data = await res.json();
       setRoomType(data.roomType as RoomType);
     } catch { setRoomType('Other'); }
     finally { setIsAnalyzing(false); }
-  }, [email]);
+  }, []);
+
+  // ─── Process File ──────────────────────────────────────────────────────
+
+  const processFile = useCallback(async (file: File) => {
+    if (!file) return;
+    setError(null);
+    setSelectedOption(null);
+    setTileImages([]);
+    setHasDownloaded(false);
+
+    const compressed = await compressImage(file);
+    const previewUrl = URL.createObjectURL(compressed);
+    setOriginalImage(previewUrl);
+    setCurrentFile(compressed);
+
+    // Pre-compute base64 for API calls
+    const b64 = await fileToBase64(compressed);
+    setBase64Image(b64);
+
+    if (!email) { setStep('email'); return; }
+
+    setStep('options');
+    await analyzeRoom(compressed);
+  }, [email, analyzeRoom]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles[0]) processFile(acceptedFiles[0]);
@@ -270,132 +319,153 @@ const [currentTip, setCurrentTip] = useState(0);
     onDrop, accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'] }, maxFiles: 1
   } as any);
 
-  const mobileInputRef = React.useRef<HTMLInputElement>(null);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
   const handleMobileFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) processFile(file);
   };
 
+  // ─── Email Submit ──────────────────────────────────────────────────────
+
   const handleEmailSubmit = async () => {
     if (!emailInput.includes('@')) return;
-    setEmail(emailInput);
+    const normalizedEmail = emailInput.toLowerCase().trim();
+    setEmail(normalizedEmail);
+
+    // FIX: Save to localStorage so session persists across refreshes and payment redirects
+    localStorage.setItem('ssa_email', normalizedEmail);
+
     try {
-      const res = await fetch(`/api/user?email=${encodeURIComponent(emailInput)}`);
+      const res = await fetch(`/api/user?email=${encodeURIComponent(normalizedEmail)}`);
       const data = await res.json();
       setCredits(data.credits ?? 0);
     } catch { setCredits(0); }
 
     if (!currentFile) { setStep('upload'); return; }
-    setIsAnalyzing(true);
     setStep('options');
-    try {
-      const formData = new FormData();
-      formData.append('image', currentFile);
-      const res = await fetch('/api/analyze', { method: 'POST', body: formData });
-      const data = await res.json();
-      setRoomType(data.roomType as RoomType);
-    } catch { setRoomType('Other'); }
-    finally { setIsAnalyzing(false); }
+    await analyzeRoom(currentFile);
   };
 
-      const toggleOption = (id: string) => {
-      setSelectedOptions(new Set([id]));
+  // ─── Single Select ─────────────────────────────────────────────────────
+
+  const toggleOption = (id: string) => {
+    setSelectedOption(id);
   };
+
+  // ─── 4-Tile Generation ─────────────────────────────────────────────────
 
   const handleGenerateAll = async () => {
-    if (!originalImage || !currentFile || selectedOptions.size === 0) return;
+    if (!base64Image || !selectedOption) return;
     setStep('generating');
     setGeneratingProgress(0);
     setCurrentTip(0);
     setError(null);
+    setHasDownloaded(false);
+    setTileImages([]);
 
-    const options = getOptions(roomType).filter(o => selectedOptions.has(o.id));
-    const newResults: GeneratedResult[] = [];
+    const option = getOptions(roomType).find(o => o.id === selectedOption);
+    if (!option) return;
 
-    const reader = new FileReader();
-    reader.readAsDataURL(currentFile);
-    reader.onload = async () => {
-      const base64Image = reader.result as string;
+    // Generate 4 versions in parallel
+    const completedImages: (string | null)[] = [null, null, null, null];
+    let completedCount = 0;
 
-      for (let i = 0; i < options.length; i++) {
-        const option = options[i];
-        try {
-          const res = await fetch('/api/stage', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              image: base64Image,
-              prompt: option.prompt,
-              email,
-              isFirstInBatch: i === 0,
-              isRetry: false
-            })
-          });
-          if (res.status === 402) {
-            setError('No credits remaining. Please purchase more credits.');
-            setShowCreditWarning(true);
-            setStep('options');
-            return;
-          }
-          const data = await res.json();
-          if (data.previewImage) {
-            newResults.push({ option, image: data.previewImage, generationId: data.generationId });
-          }
-        } catch (err) {
-          console.error('Failed: ' + option.label, err);
-        }
-        setGeneratingProgress(Math.round(((i + 1) / options.length) * 100));
-      }
-
-      // Refresh credits from server
-      try {
-        const r = await fetch('/api/user?email=' + encodeURIComponent(email));
-        const d = await r.json();
-        setCredits(d.credits ?? 0);
-      } catch { setCredits(prev => Math.max(0, prev - 1)); }
-
-      setResults(newResults);
-      setActiveResult(newResults[0] || null);
-      setStep('result');
-    };
-  };
-
-  const handleDownload = async (result: GeneratedResult) => {
-    // Deduct credit on first download of a batch
-    if (credits < 1) { setShowCreditWarning(true); return; }
-
-    try {
-      const creditRes = await fetch('/api/deduct-credit', {
+    const promises = Array.from({ length: 4 }, (_, i) =>
+      fetch('/api/stage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const creditData = await creditRes.json();
-      if (!creditData.success) { setShowCreditWarning(true); return; }
-      setCredits(creditData.credits);
-    } catch {
-      setShowCreditWarning(true); return;
+        body: JSON.stringify({
+          image: base64Image,
+          prompt: option.prompt,
+          email,
+          isFirstInBatch: i === 0,
+          isRetry: false
+        })
+      })
+        .then(res => {
+          if (res.status === 402) throw new Error('NO_CREDITS');
+          return res.json();
+        })
+        .then(data => {
+          completedCount++;
+          setGeneratingProgress(Math.round((completedCount / 4) * 100));
+          completedImages[i] = data.previewImage || null;
+        })
+        .catch(err => {
+          completedCount++;
+          setGeneratingProgress(Math.round((completedCount / 4) * 100));
+          if (err.message === 'NO_CREDITS') throw err;
+          console.error(`Generation ${i + 1} failed:`, err);
+          completedImages[i] = null;
+        })
+    );
+
+    try {
+      await Promise.all(promises);
+    } catch (err: any) {
+      if (err?.message === 'NO_CREDITS') {
+        setError('No credits remaining. Please purchase more credits.');
+        setShowCreditWarning(true);
+        setStep('options');
+        return;
+      }
     }
 
-    let imageToDownload = result.image;
-    if (watermarkEnabled) {
-      imageToDownload = await addWatermarkToImage(result.image, 'SmartStageAgent.com');
+    const validImages = completedImages.filter(Boolean) as string[];
+
+    if (validImages.length === 0) {
+      setError('All generations failed. Please try again.');
+      setStep('options');
+      return;
     }
-    // Convert base64 to blob URL for reliable download on all browsers including iOS
+
+    setTileImages(validImages);
+    setSelectedTile(0);
+    setStep('result');
+  };
+
+  // ─── Download with Credit Gate ─────────────────────────────────────────
+
+  const handleDownload = async (imageToSave: string) => {
+    // FIX: Only deduct credit on FIRST download of this batch
+    if (!hasDownloaded) {
+      if (credits < 1) { setShowCreditWarning(true); return; }
+
+      try {
+        const creditRes = await fetch('/api/deduct-credit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const creditData = await creditRes.json();
+        if (!creditData.success) { setShowCreditWarning(true); return; }
+        setCredits(creditData.credits);
+        setHasDownloaded(true);
+      } catch {
+        setShowCreditWarning(true); return;
+      }
+    }
+
+    let finalImage = imageToSave;
+    if (watermarkEnabled) {
+      finalImage = await addWatermarkToImage(imageToSave, 'SmartStageAgent.com');
+    }
+
+    // Download with iOS Safari fallback
     try {
-      const res = await fetch(imageToDownload);
+      const res = await fetch(finalImage);
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `smartstageagent-${result.option.id}.jpg`;
+      a.download = `smartstageagent-${selectedOption || 'enhanced'}-v${selectedTile + 1}.jpg`;
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
       setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 1000);
     } catch {
       const a = document.createElement('a');
-      a.href = imageToDownload;
+      a.href = finalImage;
       a.target = '_blank';
       a.rel = 'noopener';
       document.body.appendChild(a);
@@ -404,55 +474,90 @@ const [currentTip, setCurrentTip] = useState(0);
     }
   };
 
-  const handleReset = () => {
-    setStep('upload'); setOriginalImage(null); setResults([]);
-    setRoomType(null); setSelectedOptions(new Set()); setError(null);
-    setCurrentFile(null); setActiveResult(null);
-  };
+  // ─── Retry (free re-generation) ────────────────────────────────────────
 
   const handleRetry = async () => {
-    if (!originalImage || !currentFile || selectedOptions.size === 0) return;
+    if (!base64Image || !selectedOption) return;
     setStep('generating');
     setGeneratingProgress(0);
     setError(null);
-    const options = getOptions(roomType).filter(o => selectedOptions.has(o.id));
-    const newResults: GeneratedResult[] = [];
-    const reader = new FileReader();
-    reader.readAsDataURL(currentFile);
-    reader.onload = async () => {
-      const base64Image = reader.result as string;
-      for (let i = 0; i < options.length; i++) {
-        const option = options[i];
-        try {
-          const res = await fetch('/api/stage', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64Image, prompt: option.prompt, email, isRetry: true, isFirstInBatch: false })
-          });
-          const data = await res.json();
-          if (data.previewImage) newResults.push({ option, image: data.previewImage, generationId: data.generationId });
-        } catch (err) { console.error(err); }
-        setGeneratingProgress(Math.round(((i + 1) / options.length) * 100));
-      }
-      // No credit deduction on retry
-      setResults(newResults);
-      setActiveResult(newResults[0] || null);
-      setStep('result');
-    };
+    setTileImages([]);
+    setHasDownloaded(false);
+
+    const option = getOptions(roomType).find(o => o.id === selectedOption);
+    if (!option) return;
+
+    const completedImages: (string | null)[] = [null, null, null, null];
+    let completedCount = 0;
+
+    const promises = Array.from({ length: 4 }, (_, i) =>
+      fetch('/api/stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: base64Image,
+          prompt: option.prompt,
+          email,
+          isRetry: true,
+          isFirstInBatch: false
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
+          completedCount++;
+          setGeneratingProgress(Math.round((completedCount / 4) * 100));
+          completedImages[i] = data.previewImage || null;
+        })
+        .catch(err => {
+          completedCount++;
+          setGeneratingProgress(Math.round((completedCount / 4) * 100));
+          console.error(err);
+          completedImages[i] = null;
+        })
+    );
+
+    await Promise.all(promises);
+    const validImages = completedImages.filter(Boolean) as string[];
+
+    if (validImages.length === 0) {
+      setError('All generations failed. Please try again.');
+      setStep('options');
+      return;
+    }
+
+    setTileImages(validImages);
+    setSelectedTile(0);
+    setStep('result');
+  };
+
+  // ─── Navigation ────────────────────────────────────────────────────────
+
+  const handleReset = () => {
+    setStep('upload'); setOriginalImage(null); setBase64Image(null);
+    setTileImages([]); setRoomType(null); setSelectedOption(null);
+    setError(null); setCurrentFile(null); setHasDownloaded(false);
+    setSelectedTile(0);
   };
 
   const handleTryAnother = () => {
-    setStep('options'); setResults([]); setSelectedOptions(new Set()); setError(null); setActiveResult(null);
+    setStep('options'); setTileImages([]); setSelectedOption(null);
+    setError(null); setHasDownloaded(false); setSelectedTile(0);
   };
 
+  // ─── Derived ───────────────────────────────────────────────────────────
+
   const options = getOptions(roomType);
+  const selectedOptionObj = selectedOption ? options.find(o => o.id === selectedOption) : null;
+
+  // ─── Render ────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-slate-50">
-      {/* Credit bar */}
+      {/* Credit bar — FIX: Updated text for single select */}
       <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Sparkles className="w-4 h-4 text-orange-500" />
-          <span className="hidden sm:inline">Select multiple enhancements — </span><strong>1 credit for all</strong>
+          <span className="hidden sm:inline">Select an enhancement — </span><strong>1 credit per photo</strong>
         </div>
         <div className="flex items-center gap-2">
           {email && <span className="text-xs text-slate-400 hidden sm:block">{email}</span>}
@@ -469,21 +574,30 @@ const [currentTip, setCurrentTip] = useState(0);
         <span><strong>Your photos are NOT stored</strong> — automatically deleted after 24 hours. <strong>Download immediately</strong> after enhancing.</span>
       </div>
 
+      {/* Success toast */}
+      <AnimatePresence>
+        {showSuccessToast && (
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center gap-2">
+            ✓ Payment successful — credits added to your account!
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-4xl mx-auto px-4 py-8">
         <AnimatePresence mode="wait">
 
-          {/* UPLOAD */}
+          {/* ═══════ UPLOAD ═══════ */}
           {step === 'upload' && (
             <motion.div key="upload" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
               <div className="text-center mb-6">
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">Upload a Listing Photo</h1>
-                <p className="text-slate-500 text-sm sm:text-base">AI detects the room and suggests enhancements. 1 credit for all selected.</p>
+                <p className="text-slate-500 text-sm sm:text-base">AI detects the room and suggests enhancements. 1 credit per photo.</p>
               </div>
 
-              {/* Hidden mobile inputs */}
               <input ref={mobileInputRef} type="file" accept="image/*" className="hidden" onChange={handleMobileFile} />
 
-              {/* Mobile buttons - shown on touch devices */}
+              {/* Mobile buttons */}
               <div className="flex flex-col gap-3 sm:hidden mb-4">
                 <button onClick={() => { const i = document.createElement('input'); i.type='file'; i.accept='image/*'; i.capture='environment'; i.onchange=(e:any)=>{ if(e.target.files?.[0]) processFile(e.target.files[0]); }; i.click(); }}
                   className="w-full flex items-center justify-center gap-3 py-5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl text-lg transition-colors shadow-md">
@@ -495,7 +609,7 @@ const [currentTip, setCurrentTip] = useState(0);
                 </button>
               </div>
 
-              {/* Desktop dropzone - hidden on mobile */}
+              {/* Desktop dropzone */}
               <div {...getRootProps()} className={cn("hidden sm:flex border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all flex-col items-center gap-4", isDragActive ? "border-orange-500 bg-orange-50" : "border-slate-300 hover:border-orange-400 hover:bg-slate-100 bg-white")}>
                 <input {...getInputProps()} />
                 <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
@@ -510,11 +624,11 @@ const [currentTip, setCurrentTip] = useState(0);
                 </div>
               </div>
 
-              <p className="text-center text-xs text-slate-400 mt-4">Free to upload. 1 credit charged per generation. Photos deleted after 24 hours.</p>
+              <p className="text-center text-xs text-slate-400 mt-4">Free to upload. 1 credit charged per download. Photos deleted after 24 hours.</p>
             </motion.div>
           )}
 
-          {/* EMAIL */}
+          {/* ═══════ EMAIL ═══════ */}
           {step === 'email' && (
             <motion.div key="email" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-md mx-auto">
               {originalImage && (
@@ -549,7 +663,7 @@ const [currentTip, setCurrentTip] = useState(0);
             </motion.div>
           )}
 
-          {/* OPTIONS */}
+          {/* ═══════ OPTIONS ═══════ */}
           {step === 'options' && originalImage && (
             <motion.div key="options" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
               <div className="flex flex-col md:grid md:grid-cols-2 gap-6">
@@ -590,7 +704,7 @@ const [currentTip, setCurrentTip] = useState(0);
 
                   <div className="space-y-2 mb-4">
                     {options.map(option => {
-                      const selected = selectedOptions.has(option.id);
+                      const selected = selectedOption === option.id;
                       return (
                         <button key={option.id} onClick={() => toggleOption(option.id)}
                           className={cn("w-full flex items-center gap-4 p-4 border-2 rounded-xl text-left transition-all",
@@ -606,25 +720,28 @@ const [currentTip, setCurrentTip] = useState(0);
                     })}
                   </div>
 
-                  <button onClick={handleGenerateAll} disabled={selectedOptions.size === 0 || isAnalyzing}
+                  <button onClick={handleGenerateAll} disabled={!selectedOption || isAnalyzing}
                     className="w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl flex items-center justify-center gap-2 transition-colors">
                     <Wand2 className="w-5 h-5" />
-                    {selectedOptions.size === 0 ? 'Select enhancements above' : (selectedOptions.size > 1 ? `Generate ${selectedOptions.size} Enhancements — 1 Credit` : 'Generate 1 Enhancement — 1 Credit')}
+                    {!selectedOption ? 'Select an enhancement above' : 'Generate 4 Versions — 1 Credit'}
                   </button>
+                  <p className="text-center text-xs text-slate-400 mt-2">
+                    Credit is only used when you download. Generation is free to preview.
+                  </p>
                 </div>
               </div>
             </motion.div>
           )}
 
-          {/* GENERATING */}
+          {/* ═══════ GENERATING ═══════ */}
           {step === 'generating' && (
             <motion.div key="generating" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center py-20">
               <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Wand2 className="w-10 h-10 text-orange-500 animate-pulse" />
               </div>
-              <h2 className="text-2xl font-black text-slate-900 mb-2">Real work is happening...</h2>
-              <p className="text-slate-500 mb-1">Running {selectedOptions.size} enhancement{selectedOptions.size > 1 ? 's' : ''} through AI</p>
-              <p className="text-sm font-semibold text-orange-500 mb-8">⏱ Usually takes 20–60 seconds — please don't close this tab</p>
+              <h2 className="text-2xl font-black text-slate-900 mb-2">Generating 4 versions...</h2>
+              <p className="text-slate-500 mb-1">Running your enhancement through AI 4 times for variety</p>
+              <p className="text-sm font-semibold text-orange-500 mb-8">⏱ Usually takes 30–60 seconds — please don't close this tab</p>
               <div className="max-w-sm mx-auto bg-slate-200 rounded-full h-3 overflow-hidden mb-3">
                 <motion.div className="h-full bg-orange-500 rounded-full" initial={{ width: '0%' }} animate={{ width: `${generatingProgress}%` }} transition={{ duration: 0.5 }} />
               </div>
@@ -639,107 +756,132 @@ const [currentTip, setCurrentTip] = useState(0);
             </motion.div>
           )}
 
-          {/* RESULT */}
-          {step === 'result' && originalImage && results.length > 0 && (
+          {/* ═══════ RESULT (4-Tile) ═══════ */}
+          {step === 'result' && originalImage && tileImages.length > 0 && (
             <motion.div key="result" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-bold mb-4">
-                  ✓ {results.length} enhancement{results.length > 1 ? 's' : ''} complete — 1 credit used
+                  ✓ {tileImages.length} version{tileImages.length > 1 ? 's' : ''} generated
+                  {hasDownloaded ? ' — 1 credit used' : ' — pick your favorite to download'}
                 </div>
-                <h2 className="text-2xl font-black text-slate-900">Drag the handle to compare</h2>
+                {selectedOptionObj && (
+                  <h2 className="text-2xl font-black text-slate-900">{selectedOptionObj.emoji} {selectedOptionObj.label}</h2>
+                )}
               </div>
 
-              {results.length > 1 && (
-                <div className="flex gap-2 mb-4 flex-wrap justify-center px-1">
-                  {results.map(r => (
-                    <button key={r.option.id} onClick={() => setActiveResult(r)}
-                      className={cn("px-4 py-2 rounded-full text-sm font-bold transition-all",
-                        activeResult?.option.id === r.option.id ? "bg-orange-500 text-white" : "bg-white border-2 border-slate-200 text-slate-700 hover:border-orange-300")}>
-                      {r.option.emoji} {r.option.label}
+              {/* 2x2 Tile Grid */}
+              {tileImages.length > 1 && (
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  {tileImages.map((img, i) => (
+                    <button key={i} onClick={() => setSelectedTile(i)}
+                      className={cn(
+                        "relative rounded-xl overflow-hidden border-3 transition-all",
+                        selectedTile === i
+                          ? "border-orange-500 ring-2 ring-orange-300 ring-offset-1"
+                          : "border-slate-200 hover:border-orange-300"
+                      )}>
+                      <img src={img} alt={`Version ${i + 1}`} className="w-full aspect-[4/3] object-cover" />
+                      <div className={cn(
+                        "absolute bottom-0 left-0 right-0 text-center text-sm py-1.5 font-bold",
+                        selectedTile === i
+                          ? "bg-orange-500 text-white"
+                          : "bg-black/40 text-white/80"
+                      )}>
+                        Version {i + 1} {selectedTile === i && '✓'}
+                      </div>
                     </button>
                   ))}
                 </div>
               )}
 
-              {activeResult && (
-                <>
-                  <div className="rounded-2xl overflow-hidden shadow-xl border border-slate-200 aspect-[4/3] sm:aspect-[16/9] mb-4 bg-slate-900">
-                    <ImageComparison beforeImage={originalImage} afterImage={activeResult.image} objectFit="contain" />
-                  </div>
+              {/* Before/After Comparison of Selected Tile */}
+              <div className="rounded-2xl overflow-hidden shadow-xl border border-slate-200 aspect-[4/3] sm:aspect-[16/9] mb-4 bg-slate-900">
+                <ImageComparison beforeImage={originalImage} afterImage={tileImages[selectedTile]} objectFit="contain" />
+              </div>
 
-                  {/* Watermark toggle */}
-                  <div className="flex items-center justify-center gap-3 mb-4 bg-slate-100 rounded-xl p-3 max-w-sm mx-auto">
-                    <button onClick={() => setWatermarkEnabled(!watermarkEnabled)}
-                      className={cn("relative w-10 h-5 rounded-full transition-colors", watermarkEnabled ? "bg-orange-500" : "bg-slate-300")}>
-                      <div className={cn("absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform", watermarkEnabled ? "translate-x-5" : "translate-x-0.5")} />
-                    </button>
-                    <span className="text-sm text-slate-600">
-                      {watermarkEnabled ? <span>Watermark <strong>on</strong> — <span className="text-slate-400">SmartStageAgent.com</span></span> : <span>Watermark <strong>off</strong></span>}
-                    </span>
-                  </div>
+              <p className="text-center text-sm text-slate-500 mb-4">↕ Drag the handle to compare before & after</p>
 
-                  <div className="flex flex-col gap-3 sm:flex-row sm:justify-center sm:flex-wrap">
-                    {credits > 0 ? (
-                      <button onClick={() => handleDownload(activeResult)}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-[#1E3A8A] hover:bg-blue-900 text-white font-bold rounded-xl transition-colors">
-                        <Download className="w-5 h-5" /> Download {activeResult.option.label}
-                      </button>
-                    ) : (
-                      <button onClick={() => setShowCreditWarning(true)}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-colors">
-                        <Download className="w-5 h-5" /> Buy Credits to Download
-                      </button>
-                    )}
-                    <button onClick={handleRetry} className="flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl border-2 border-slate-200 transition-colors">
-                      <RotateCcw className="w-4 h-4 text-orange-500" /> Try Again (free)
-                    </button>
-                    <button onClick={handleTryAnother} className="flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl border-2 border-slate-200 transition-colors">
-                      <Wand2 className="w-5 h-5 text-orange-500" /> New Enhancements
-                    </button>
-                    <button onClick={handleReset} className="flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-500 font-medium rounded-xl border border-slate-200 transition-colors">
-                      <Upload className="w-4 h-4" /> New Photo
-                    </button>
-                  </div>
-                  <p className="text-center text-xs text-slate-400 mt-4">
-                    ⚠️ Photos NOT stored — deleted after 24 hours. Download now. AI-enhanced — disclose per your MLS.
-                  </p>
-                  <div className="mt-3 text-center">
-                    <a href="mailto:darren@smartstageagent.com?subject=Photo Enhancement Issue" className="text-xs text-slate-400 hover:text-orange-500 underline transition-colors">
-                      Not happy with your result? Contact us — we'll make it right.
-                    </a>
-                  </div>
-                </>
+              {/* Watermark toggle */}
+              <div className="flex items-center justify-center gap-3 mb-4 bg-slate-100 rounded-xl p-3 max-w-sm mx-auto">
+                <button onClick={() => setWatermarkEnabled(!watermarkEnabled)}
+                  className={cn("relative w-10 h-5 rounded-full transition-colors", watermarkEnabled ? "bg-orange-500" : "bg-slate-300")}>
+                  <div className={cn("absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform", watermarkEnabled ? "translate-x-5" : "translate-x-0.5")} />
+                </button>
+                <span className="text-sm text-slate-600">
+                  {watermarkEnabled ? <span>Watermark <strong>on</strong> — <span className="text-slate-400">SmartStageAgent.com</span></span> : <span>Watermark <strong>off</strong></span>}
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-center sm:flex-wrap">
+                {(credits > 0 || hasDownloaded) ? (
+                  <button onClick={() => handleDownload(tileImages[selectedTile])}
+                    className="flex items-center justify-center gap-2 px-6 py-3 bg-[#1E3A8A] hover:bg-blue-900 text-white font-bold rounded-xl transition-colors">
+                    <Download className="w-5 h-5" />
+                    {hasDownloaded ? `Download Version ${selectedTile + 1} (Free)` : `Download Version ${selectedTile + 1} — 1 Credit`}
+                  </button>
+                ) : (
+                  <button onClick={() => setShowCreditWarning(true)}
+                    className="flex items-center justify-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-colors">
+                    <Download className="w-5 h-5" /> Buy Credits to Download
+                  </button>
+                )}
+                <button onClick={handleRetry} className="flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl border-2 border-slate-200 transition-colors">
+                  <RotateCcw className="w-4 h-4 text-orange-500" /> Regenerate (free)
+                </button>
+                <button onClick={handleTryAnother} className="flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl border-2 border-slate-200 transition-colors">
+                  <Wand2 className="w-5 h-5 text-orange-500" /> Different Enhancement
+                </button>
+                <button onClick={handleReset} className="flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-500 font-medium rounded-xl border border-slate-200 transition-colors">
+                  <Upload className="w-4 h-4" /> New Photo
+                </button>
+              </div>
+
+              {hasDownloaded && (
+                <p className="text-center text-xs text-green-600 font-medium mt-3">
+                  ✓ Credit used — download any version for free
+                </p>
               )}
+
+              <p className="text-center text-xs text-slate-400 mt-4">
+                ⚠️ Photos NOT stored — deleted after 24 hours. Download now. AI-enhanced — disclose per your MLS.
+              </p>
+              <div className="mt-3 text-center">
+                <a href="mailto:darren@smartstageagent.com?subject=Photo Enhancement Issue" className="text-xs text-slate-400 hover:text-orange-500 underline transition-colors">
+                  Not happy with your result? Contact us — we'll make it right.
+                </a>
+              </div>
             </motion.div>
           )}
 
         </AnimatePresence>
       </div>
 
-      {/* Credit Purchase Modal */}
+      {/* ═══════ Credit Purchase Modal ═══════ */}
       <AnimatePresence>
         {showCreditWarning && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
               <h3 className="text-xl font-bold text-slate-900 mb-1">Get Credits</h3>
-              <p className="text-slate-500 text-sm mb-6">1 credit = unlimited enhancements on one photo batch.</p>
+              <p className="text-slate-500 text-sm mb-6">1 credit = 4 AI versions of one photo. Download your favorite.</p>
               {email.endsWith('@orchard.com') && (
                 <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 mb-3 text-xs text-blue-700 font-medium">
                   🏡 Orchard agent pricing applied — $1/credit on 20+ packs
                 </div>
               )}
               <div className="space-y-2 mb-4">
+                {/* FIX: Orchard package IDs match checkout.ts (orchard20/orchard50 not 20pack/50pack) */}
                 {(email.endsWith('@orchard.com') ? [
-                  { id: '1pack',  label: '1 Photo Batch',   price: '$5',  note: '',               popular: false },
-                  { id: '5pack',  label: '5 Photo Batches',  price: '$20', note: '',               popular: false },
-                  { id: '20pack', label: '20 Photo Batches', price: '$20', note: '$1/credit',      popular: true },
-                  { id: '50pack', label: '50 Photo Batches', price: '$50', note: '$1/credit',      popular: false },
+                  { id: '1pack',     label: '1 Photo Batch',   price: '$5',  note: '',          popular: false },
+                  { id: '5pack',     label: '5 Photo Batches',  price: '$20', note: '',          popular: false },
+                  { id: 'orchard20', label: '20 Photo Batches', price: '$20', note: '$1/credit', popular: true },
+                  { id: 'orchard50', label: '50 Photo Batches', price: '$50', note: '$1/credit', popular: false },
                 ] : [
-                  { id: '1pack',  label: '1 Photo Batch',   price: '$5',  note: '',               popular: false },
-                  { id: '5pack',  label: '5 Photo Batches',  price: '$20', note: '$4/credit',      popular: true },
-                  { id: '10pack', label: '10 Photo Batches', price: '$30', note: '$3/credit',      popular: false },
-                  { id: '25pack', label: '25 Photo Batches', price: '$50', note: '$2/credit',      popular: false },
+                  { id: '1pack',  label: '1 Photo Batch',   price: '$5',  note: '',          popular: false },
+                  { id: '5pack',  label: '5 Photo Batches',  price: '$20', note: '$4/credit', popular: true },
+                  { id: '10pack', label: '10 Photo Batches', price: '$30', note: '$3/credit', popular: false },
+                  { id: '25pack', label: '25 Photo Batches', price: '$50', note: '$2/credit', popular: false },
                 ]).map(pkg => (
                   <button key={pkg.id} onClick={async () => {
                     if (!email) { setShowCreditWarning(false); setStep('email'); return; }
