@@ -195,6 +195,10 @@ export function Editor() {
   const [currentTip, setCurrentTip] = useState(0);
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportNotes, setReportNotes] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportSent, setReportSent] = useState(false);
 
   // ─── Session Restore + Post-Payment ────────────────────────────────────
 
@@ -531,7 +535,39 @@ export function Editor() {
   };
 
   // ─── Navigation ────────────────────────────────────────────────────────
+  
+  const handleReport = async () => {
+    setReportSubmitting(true);
+    try {
+      await fetch('/api/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          roomType,
+          enhancementId: selectedOption,
+          enhancementLabel: selectedOptionObj?.label,
+          tileIndex: selectedTile,
+          notes: reportNotes.trim() || undefined,
+        })
+      });
+      setReportSent(true);
+      setShowReportModal(false);
+      setReportNotes('');
+      setTimeout(() => setReportSent(false), 5000);
+    } catch {
+      setError('Failed to send report. Please email darren@smartstageagent.com directly.');
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
 
+  const handleReset = () => {
+    setStep('upload'); setOriginalImage(null); setBase64Image(null);
+    setTileImages([]); setRoomType(null); setSelectedOption(null);
+    setError(null); setCurrentFile(null); setHasDownloaded(false);
+    setSelectedTile(0);
+  };
   const handleReset = () => {
     setStep('upload'); setOriginalImage(null); setBase64Image(null);
     setTileImages([]); setRoomType(null); setSelectedOption(null);
@@ -846,10 +882,16 @@ export function Editor() {
               <p className="text-center text-xs text-slate-400 mt-4">
                 ⚠️ Photos NOT stored — deleted after 24 hours. Download now. AI-enhanced — disclose per your MLS.
               </p>
+{/* Report Bad Result Button */}
               <div className="mt-3 text-center">
-                <a href="mailto:darren@smartstageagent.com?subject=Photo Enhancement Issue" className="text-xs text-slate-400 hover:text-orange-500 underline transition-colors">
-                  Not happy with your result? Contact us — we'll make it right.
-                </a>
+                {reportSent ? (
+                  <p className="text-sm text-green-600 font-medium">✓ Report sent — we'll review and make it right within 24 hours.</p>
+                ) : (
+                  <button onClick={() => setShowReportModal(true)}
+                    className="text-sm text-slate-400 hover:text-red-500 underline transition-colors">
+                    ⚠️ Report bad result — we'll fix it or refund your credit
+                  </button>
+                )}
               </div>
             </motion.div>
           )}
@@ -903,6 +945,40 @@ export function Editor() {
                 ))}
               </div>
               <button onClick={() => setShowCreditWarning(false)} className="w-full text-sm text-slate-500 hover:text-slate-700 py-2">Cancel</button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Report Bad Result Modal */}
+      <AnimatePresence>
+        {showReportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+              <h3 className="text-xl font-bold text-slate-900 mb-1">Report Bad Result</h3>
+              <p className="text-slate-500 text-sm mb-4">
+                We'll review this personally and either fix the photo or add a credit to your account within 24 hours.
+              </p>
+              <div className="bg-slate-50 rounded-xl p-3 mb-4 text-sm text-slate-600">
+                <p><strong>Room:</strong> {roomType}</p>
+                <p><strong>Enhancement:</strong> {selectedOptionObj?.emoji} {selectedOptionObj?.label}</p>
+                <p><strong>Version:</strong> {selectedTile + 1} of {tileImages.length}</p>
+              </div>
+              <textarea
+                value={reportNotes}
+                onChange={e => setReportNotes(e.target.value)}
+                placeholder="What went wrong? (optional — e.g. 'AI moved the oven', 'added cabinets that don't exist')"
+                className="w-full border-2 border-slate-200 focus:border-orange-400 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-colors mb-4 text-sm resize-none"
+                rows={3}
+              />
+              <button onClick={handleReport} disabled={reportSubmitting}
+                className="w-full py-3 bg-red-500 hover:bg-red-600 disabled:bg-slate-300 text-white font-bold rounded-xl transition-colors mb-2">
+                {reportSubmitting ? 'Sending...' : 'Send Report'}
+              </button>
+              <button onClick={() => { setShowReportModal(false); setReportNotes(''); }}
+                className="w-full text-sm text-slate-500 hover:text-slate-700 py-2">
+                Cancel
+              </button>
             </motion.div>
           </div>
         )}
