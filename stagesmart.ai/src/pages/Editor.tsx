@@ -100,47 +100,14 @@ const ROOM_OPTIONS: Record<string, EditOption[]> = {
   ],
 };
 
-function getOptions(roomType: RoomType | null): EditOption[] {
-  if (!roomType) return ROOM_OPTIONS['Other'];
-  return (ROOM_OPTIONS as any)[roomType] || ROOM_OPTIONS['Other'];
-}
-
+function getOptions(roomType: RoomType | null): EditOption[] { if (!roomType) return ROOM_OPTIONS['Other']; return (ROOM_OPTIONS as any)[roomType] || ROOM_OPTIONS['Other']; }
 function getGreeting(roomType: RoomType | null): string {
-  const greetings: Record<string, string> = {
-    'Exterior': "Exterior detected — choose an enhancement below.",
-    'Backyard': "Backyard detected — pick an enhancement below.",
-    'Rooftop Terrace': "Rooftop terrace detected — how do you want to transform this space?",
-    'Balcony': "Balcony detected — choose an enhancement below.",
-    'Living Room': "Living room detected — how do you want to stage this space?",
-    'Dining Room': "Dining room detected — how do you want to stage this space?",
-    'Kitchen': "Kitchen detected — select an enhancement below.",
-    'Bedroom': "Bedroom detected — how do you want to stage this space?",
-    'Bathroom': "Bathroom detected — select an enhancement below.",
-    'Home Office': "Home office detected — how do you want to stage this space?",
-    'Other': "Large or flex space detected — how do you want to stage this space?",
-  };
-  return roomType ? (greetings[roomType] || greetings['Other']) : "How do you want to stage this space?";
+  const g: Record<string, string> = { 'Exterior': "Exterior detected — choose an enhancement below.", 'Backyard': "Backyard detected — pick an enhancement below.", 'Rooftop Terrace': "Rooftop terrace detected — how do you want to transform this space?", 'Balcony': "Balcony detected — choose an enhancement below.", 'Living Room': "Living room detected — how do you want to stage this space?", 'Dining Room': "Dining room detected — how do you want to stage this space?", 'Kitchen': "Kitchen detected — select an enhancement below.", 'Bedroom': "Bedroom detected — how do you want to stage this space?", 'Bathroom': "Bathroom detected — select an enhancement below.", 'Home Office': "Home office detected — how do you want to stage this space?", 'Other': "Large or flex space detected — how do you want to stage this space?" };
+  return roomType ? (g[roomType] || g['Other']) : "How do you want to stage this space?";
 }
 
 function addWatermarkToImage(imageDataUrl: string, text: string): Promise<string> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width; canvas.height = img.height;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0);
-      const fontSize = Math.max(16, Math.floor(img.width / 40));
-      ctx.font = `bold ${fontSize}px Arial`;
-      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2;
-      ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-      const padding = Math.floor(img.width * 0.02);
-      ctx.strokeText(text, img.width - padding, img.height - padding);
-      ctx.fillText(text, img.width - padding, img.height - padding);
-      resolve(canvas.toDataURL('image/jpeg', 0.92));
-    };
-    img.src = imageDataUrl;
-  });
+  return new Promise((resolve) => { const img = new Image(); img.onload = () => { const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height; const ctx = canvas.getContext('2d')!; ctx.drawImage(img, 0, 0); const fontSize = Math.max(16, Math.floor(img.width / 40)); ctx.font = `bold ${fontSize}px Arial`; ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; const p = Math.floor(img.width * 0.02); ctx.strokeText(text, img.width - p, img.height - p); ctx.fillText(text, img.width - p, img.height - p); resolve(canvas.toDataURL('image/jpeg', 0.92)); }; img.src = imageDataUrl; });
 }
 
 export function Editor() {
@@ -169,65 +136,35 @@ export function Editor() {
   const [reportRemedy, setReportRemedy] = useState('');
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportSent, setReportSent] = useState(false);
+  // Promo code state
+  const [promoInput, setPromoInput] = useState('');
+  const [promoError, setPromoError] = useState('');
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoSuccess, setPromoSuccess] = useState('');
 
   useEffect(() => {
     const saved = localStorage.getItem('ssa_email');
-    if (saved) {
-      setEmail(saved); setEmailInput(saved);
-      fetch('/api/user?email=' + encodeURIComponent(saved)).then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
-    }
+    if (saved) { setEmail(saved); setEmailInput(saved); fetch('/api/user?email=' + encodeURIComponent(saved)).then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {}); }
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true') {
-      setShowSuccessToast(true);
-      window.history.replaceState({}, '', '/editor');
-      setTimeout(() => setShowSuccessToast(false), 5000);
-      const emailToRefresh = saved || localStorage.getItem('ssa_email');
-      if (emailToRefresh) {
-        [2000, 5000, 10000].forEach(delay => {
-          setTimeout(() => {
-            fetch('/api/user?email=' + encodeURIComponent(emailToRefresh)).then(r => r.json()).then(d => { if (d.credits !== undefined) setCredits(d.credits); }).catch(() => {});
-          }, delay);
-        });
-      }
+      setShowSuccessToast(true); window.history.replaceState({}, '', '/editor'); setTimeout(() => setShowSuccessToast(false), 5000);
+      const e = saved || localStorage.getItem('ssa_email');
+      if (e) { [2000, 5000, 10000].forEach(delay => { setTimeout(() => { fetch('/api/user?email=' + encodeURIComponent(e)).then(r => r.json()).then(d => { if (d.credits !== undefined) setCredits(d.credits); }).catch(() => {}); }, delay); }); }
     }
   }, []);
 
-  useEffect(() => {
-    if (step !== 'generating') return;
-    const interval = setInterval(() => { setCurrentTip(prev => (prev + 1) % TIPS.length); }, 4000);
-    return () => clearInterval(interval);
-  }, [step]);
+  useEffect(() => { if (step !== 'generating') return; const interval = setInterval(() => { setCurrentTip(prev => (prev + 1) % TIPS.length); }, 4000); return () => clearInterval(interval); }, [step]);
 
-  const compressImage = (file: File): Promise<File> => new Promise((resolve) => {
-    const img = new Image(); const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url); const MAX = 2048; let { width, height } = img;
-      if (width > MAX || height > MAX) { if (width > height) { height = Math.round(height * MAX / width); width = MAX; } else { width = Math.round(width * MAX / height); height = MAX; } }
-      const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
-      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
-      canvas.toBlob(blob => { if (blob) resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })); else resolve(file); }, 'image/jpeg', 0.85);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); }; img.src = url;
-  });
+  const compressImage = (file: File): Promise<File> => new Promise((resolve) => { const img = new Image(); const url = URL.createObjectURL(file); img.onload = () => { URL.revokeObjectURL(url); const MAX = 2048; let { width, height } = img; if (width > MAX || height > MAX) { if (width > height) { height = Math.round(height * MAX / width); width = MAX; } else { width = Math.round(width * MAX / height); height = MAX; } } const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; canvas.getContext('2d')!.drawImage(img, 0, 0, width, height); canvas.toBlob(blob => { if (blob) resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })); else resolve(file); }, 'image/jpeg', 0.85); }; img.onerror = () => { URL.revokeObjectURL(url); resolve(file); }; img.src = url; });
+  const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result as string); reader.onerror = reject; reader.readAsDataURL(file); });
 
-  const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
-    const reader = new FileReader(); reader.onload = () => resolve(reader.result as string); reader.onerror = reject; reader.readAsDataURL(file);
-  });
-
-  const analyzeRoom = useCallback(async (file: File) => {
-    setIsAnalyzing(true);
-    try { const formData = new FormData(); formData.append('image', file); const res = await fetch('/api/analyze', { method: 'POST', body: formData }); const data = await res.json(); setRoomType(data.roomType as RoomType); }
-    catch { setRoomType('Other'); } finally { setIsAnalyzing(false); }
-  }, []);
+  const analyzeRoom = useCallback(async (file: File) => { setIsAnalyzing(true); try { const formData = new FormData(); formData.append('image', file); const res = await fetch('/api/analyze', { method: 'POST', body: formData }); const data = await res.json(); setRoomType(data.roomType as RoomType); } catch { setRoomType('Other'); } finally { setIsAnalyzing(false); } }, []);
 
   const processFile = useCallback(async (file: File) => {
-    if (!file) return;
-    setError(null); setSelectedOption(null); setTileImages([]); setHasDownloaded(false);
-    const compressed = await compressImage(file);
-    setOriginalImage(URL.createObjectURL(compressed)); setCurrentFile(compressed);
+    if (!file) return; setError(null); setSelectedOption(null); setTileImages([]); setHasDownloaded(false);
+    const compressed = await compressImage(file); setOriginalImage(URL.createObjectURL(compressed)); setCurrentFile(compressed);
     const b64 = await fileToBase64(compressed); setBase64Image(b64);
-    if (!email) { setStep('email'); return; }
-    setStep('options'); await analyzeRoom(compressed);
+    if (!email) { setStep('email'); return; } setStep('options'); await analyzeRoom(compressed);
   }, [email, analyzeRoom]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => { if (acceptedFiles[0]) processFile(acceptedFiles[0]); }, [processFile]);
@@ -237,30 +174,18 @@ export function Editor() {
 
   const handleEmailSubmit = async () => {
     if (!emailInput.includes('@')) return;
-    const normalizedEmail = emailInput.toLowerCase().trim();
-    setEmail(normalizedEmail); localStorage.setItem('ssa_email', normalizedEmail);
+    const normalizedEmail = emailInput.toLowerCase().trim(); setEmail(normalizedEmail); localStorage.setItem('ssa_email', normalizedEmail);
     try { const res = await fetch(`/api/user?email=${encodeURIComponent(normalizedEmail)}`); const data = await res.json(); setCredits(data.credits ?? 0); } catch { setCredits(0); }
-    if (!currentFile) { setStep('upload'); return; }
-    setStep('options'); await analyzeRoom(currentFile);
+    if (!currentFile) { setStep('upload'); return; } setStep('options'); await analyzeRoom(currentFile);
   };
 
-  const handleSignOut = () => {
-    localStorage.removeItem('ssa_email');
-    setEmail(''); setEmailInput(''); setCredits(0);
-    setStep('upload'); setOriginalImage(null); setBase64Image(null); setTileImages([]);
-    setRoomType(null); setSelectedOption(null); setError(null); setCurrentFile(null);
-    setHasDownloaded(false); setSelectedTile(0);
-  };
-
-  const toggleOption = (id: string) => { setSelectedOption(id); };
+  const handleSignOut = () => { localStorage.removeItem('ssa_email'); setEmail(''); setEmailInput(''); setCredits(0); setStep('upload'); setOriginalImage(null); setBase64Image(null); setTileImages([]); setRoomType(null); setSelectedOption(null); setError(null); setCurrentFile(null); setHasDownloaded(false); setSelectedTile(0); };
 
   const handleGenerateAll = async () => {
     if (!base64Image || !selectedOption) return;
     setStep('generating'); setGeneratingProgress(0); setCurrentTip(0); setError(null); setHasDownloaded(false); setTileImages([]);
-    const option = getOptions(roomType).find(o => o.id === selectedOption);
-    if (!option) return;
-    const completedImages: (string | null)[] = [null, null, null, null];
-    let completedCount = 0;
+    const option = getOptions(roomType).find(o => o.id === selectedOption); if (!option) return;
+    const completedImages: (string | null)[] = [null, null, null, null]; let completedCount = 0;
     const promises = Array.from({ length: 4 }, (_, i) =>
       fetch('/api/stage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: base64Image, prompt: option.prompt, email }) })
         .then(res => { if (!res.ok) throw new Error('Generation failed'); return res.json(); })
@@ -276,47 +201,55 @@ export function Editor() {
   const handleDownload = async (imageToSave: string) => {
     if (!hasDownloaded) {
       if (credits < 1) { setShowCreditWarning(true); return; }
-      try {
-        const creditRes = await fetch('/api/deduct-credit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
-        const creditData = await creditRes.json();
-        if (!creditData.success) { setShowCreditWarning(true); return; }
-        setCredits(creditData.credits); setHasDownloaded(true);
-      } catch { setShowCreditWarning(true); return; }
+      try { const creditRes = await fetch('/api/deduct-credit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) }); const creditData = await creditRes.json(); if (!creditData.success) { setShowCreditWarning(true); return; } setCredits(creditData.credits); setHasDownloaded(true); } catch { setShowCreditWarning(true); return; }
     }
-    let finalImage = imageToSave;
-    if (watermarkEnabled) { finalImage = await addWatermarkToImage(imageToSave, 'SmartStageAgent.com'); }
-    try {
-      const res = await fetch(finalImage); const blob = await res.blob(); const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = blobUrl; a.download = `smartstageagent-${selectedOption || 'enhanced'}-v${selectedTile + 1}.jpg`; a.style.display = 'none';
-      document.body.appendChild(a); a.click(); setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 1000);
-    } catch {
-      const a = document.createElement('a'); a.href = finalImage; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    }
+    let finalImage = imageToSave; if (watermarkEnabled) { finalImage = await addWatermarkToImage(imageToSave, 'SmartStageAgent.com'); }
+    try { const res = await fetch(finalImage); const blob = await res.blob(); const blobUrl = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = blobUrl; a.download = `smartstageagent-${selectedOption || 'enhanced'}-v${selectedTile + 1}.jpg`; a.style.display = 'none'; document.body.appendChild(a); a.click(); setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 1000); }
+    catch { const a = document.createElement('a'); a.href = finalImage; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
   };
 
   const handleReport = async () => {
-    if (!reportIssueType || !reportRemedy) return;
-    setReportSubmitting(true);
+    if (!reportIssueType || !reportRemedy) return; setReportSubmitting(true);
+    try { await fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, roomType, enhancementId: selectedOption, enhancementLabel: selectedOptionObj?.label, tileIndex: selectedTile, issueType: reportIssueType, remedyRequested: reportRemedy, notes: reportNotes.trim() || undefined, originalImage: base64Image || undefined, resultImage: tileImages[selectedTile] || undefined }) }); setReportSent(true); setShowReportModal(false); setReportNotes(''); setReportIssueType(''); setReportRemedy(''); setTimeout(() => setReportSent(false), 8000); }
+    catch { setError('Failed to send report. Please email support@smartstageagent.com directly.'); } finally { setReportSubmitting(false); }
+  };
+
+  const [appliedPromo, setAppliedPromo] = useState('');
+
+  const handleApplyPromo = async () => {
+    if (!promoInput.trim()) return;
+    setPromoLoading(true); setPromoError(''); setPromoSuccess('');
     try {
-      await fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, roomType, enhancementId: selectedOption, enhancementLabel: selectedOptionObj?.label, tileIndex: selectedTile, issueType: reportIssueType, remedyRequested: reportRemedy, notes: reportNotes.trim() || undefined, originalImage: base64Image || undefined, resultImage: tileImages[selectedTile] || undefined }) });
-      setReportSent(true); setShowReportModal(false); setReportNotes(''); setReportIssueType(''); setReportRemedy('');
-      setTimeout(() => setReportSent(false), 8000);
-    } catch { setError('Failed to send report. Please email darren@smartstageagent.com directly.'); }
-    finally { setReportSubmitting(false); }
+      // Try as free code first (redeem-promo gives free credits)
+      const res = await fetch('/api/redeem-promo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: promoInput, email }) });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCredits(data.credits); setPromoSuccess(`${data.creditsAdded} free credits added!`); setPromoInput('');
+        setTimeout(() => { setPromoSuccess(''); setShowCreditWarning(false); }, 3000);
+      } else {
+        // Not a free code — check if it's a discount code by setting it and letting checkout handle it
+        // Known discount codes show special pricing in the modal
+        const knownDiscountCodes = ['LAUNCH20'];
+        if (knownDiscountCodes.includes(promoInput.toUpperCase().trim())) {
+          setAppliedPromo(promoInput.toUpperCase().trim());
+          setPromoSuccess('Promo applied! Special pricing unlocked below.');
+          setPromoInput('');
+        } else {
+          setPromoError(data.error || 'Invalid code');
+        }
+      }
+    } catch { setPromoError('Failed to apply code'); }
+    finally { setPromoLoading(false); }
   };
 
   const handleRetry = async () => {
     if (!base64Image || !selectedOption) return;
     setStep('generating'); setGeneratingProgress(0); setError(null); setTileImages([]); setHasDownloaded(false);
-    const option = getOptions(roomType).find(o => o.id === selectedOption);
-    if (!option) return;
-    const completedImages: (string | null)[] = [null, null, null, null];
-    let completedCount = 0;
+    const option = getOptions(roomType).find(o => o.id === selectedOption); if (!option) return;
+    const completedImages: (string | null)[] = [null, null, null, null]; let completedCount = 0;
     const promises = Array.from({ length: 4 }, (_, i) =>
       fetch('/api/stage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: base64Image, prompt: option.prompt, email }) })
-        .then(res => res.json())
-        .then(data => { completedCount++; setGeneratingProgress(Math.round((completedCount / 4) * 100)); completedImages[i] = data.previewImage || null; })
+        .then(res => res.json()).then(data => { completedCount++; setGeneratingProgress(Math.round((completedCount / 4) * 100)); completedImages[i] = data.previewImage || null; })
         .catch(err => { completedCount++; setGeneratingProgress(Math.round((completedCount / 4) * 100)); console.error(err); completedImages[i] = null; })
     );
     await Promise.all(promises);
@@ -325,75 +258,41 @@ export function Editor() {
     setTileImages(validImages); setSelectedTile(0); setStep('result');
   };
 
-  const handleReset = () => {
-    setStep('upload'); setOriginalImage(null); setBase64Image(null); setTileImages([]); setRoomType(null);
-    setSelectedOption(null); setError(null); setCurrentFile(null); setHasDownloaded(false); setSelectedTile(0);
-  };
-
-  const handleTryAnother = () => {
-    setStep('options'); setTileImages([]); setSelectedOption(null); setError(null); setHasDownloaded(false); setSelectedTile(0);
-  };
+  const handleReset = () => { setStep('upload'); setOriginalImage(null); setBase64Image(null); setTileImages([]); setRoomType(null); setSelectedOption(null); setError(null); setCurrentFile(null); setHasDownloaded(false); setSelectedTile(0); };
+  const handleTryAnother = () => { setStep('options'); setTileImages([]); setSelectedOption(null); setError(null); setHasDownloaded(false); setSelectedTile(0); };
 
   const options = getOptions(roomType);
   const selectedOptionObj = selectedOption ? options.find(o => o.id === selectedOption) : null;
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-slate-50">
-      {/* Credit bar with sign out */}
       <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <Sparkles className="w-4 h-4 text-orange-500" />
-          <span className="hidden sm:inline">Select an enhancement — </span><strong>1 credit per photo</strong>
-        </div>
+        <div className="flex items-center gap-2 text-sm text-slate-500"><Sparkles className="w-4 h-4 text-orange-500" /><span className="hidden sm:inline">Select an enhancement — </span><strong>1 credit per photo</strong></div>
         <div className="flex items-center gap-2">
-          {email && (
-            <>
-              <span className="text-xs text-slate-400 hidden sm:block">{email}</span>
-              <button onClick={handleSignOut} className="text-xs text-slate-400 hover:text-red-500 transition-colors" title="Sign out">
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            </>
-          )}
+          {email && (<><span className="text-xs text-slate-400 hidden sm:block">{email}</span><button onClick={handleSignOut} className="text-xs text-slate-400 hover:text-red-500 transition-colors" title="Sign out"><LogOut className="w-3.5 h-3.5" /></button></>)}
           <span className="text-sm font-bold text-slate-900">{credits} credits</span>
           <button onClick={() => setShowCreditWarning(true)} className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-full font-medium transition-colors">Buy Credits</button>
         </div>
       </div>
+      <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-center justify-center gap-2 text-xs text-blue-600"><Info className="w-3 h-3 shrink-0" /><span><strong>Your photos are NOT stored</strong> — automatically deleted after 24 hours. <strong>Download immediately</strong> after enhancing.</span></div>
 
-      <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-center justify-center gap-2 text-xs text-blue-600">
-        <Info className="w-3 h-3 shrink-0" />
-        <span><strong>Your photos are NOT stored</strong> — automatically deleted after 24 hours. <strong>Download immediately</strong> after enhancing.</span>
-      </div>
-
-      <AnimatePresence>
-        {showSuccessToast && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center gap-2">
-            ✓ Payment successful — credits added to your account!
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AnimatePresence>{showSuccessToast && (<motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center gap-2">✓ Payment successful — credits added to your account!</motion.div>)}</AnimatePresence>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <AnimatePresence mode="wait">
 
           {step === 'upload' && (
             <motion.div key="upload" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-              <div className="text-center mb-6">
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">Upload a Listing Photo</h1>
-                <p className="text-slate-500 text-sm sm:text-base">AI detects the room and suggests enhancements. 1 credit per photo.</p>
-              </div>
+              <div className="text-center mb-6"><h1 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">Upload a Listing Photo</h1><p className="text-slate-500 text-sm sm:text-base">AI detects the room and suggests enhancements. 1 credit per photo.</p></div>
               <input ref={mobileInputRef} type="file" accept="image/*" className="hidden" onChange={handleMobileFile} />
               <div className="flex flex-col gap-3 sm:hidden mb-4">
-                <button onClick={() => { const i = document.createElement('input'); i.type='file'; i.accept='image/*'; i.capture='environment'; i.onchange=(e:any)=>{ if(e.target.files?.[0]) processFile(e.target.files[0]); }; i.click(); }}
-                  className="w-full flex items-center justify-center gap-3 py-5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl text-lg transition-colors shadow-md">📷 Take a Photo</button>
-                <button onClick={() => { const i = document.createElement('input'); i.type='file'; i.accept='image/*'; i.onchange=(e:any)=>{ if(e.target.files?.[0]) processFile(e.target.files[0]); }; i.click(); }}
-                  className="w-full flex items-center justify-center gap-3 py-5 bg-white border-2 border-slate-300 text-slate-700 font-bold rounded-2xl text-lg transition-colors shadow-sm">🖼️ Choose from Library</button>
+                <button onClick={() => { const i = document.createElement('input'); i.type='file'; i.accept='image/*'; i.capture='environment'; i.onchange=(e:any)=>{ if(e.target.files?.[0]) processFile(e.target.files[0]); }; i.click(); }} className="w-full flex items-center justify-center gap-3 py-5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl text-lg transition-colors shadow-md">📷 Take a Photo</button>
+                <button onClick={() => { const i = document.createElement('input'); i.type='file'; i.accept='image/*'; i.onchange=(e:any)=>{ if(e.target.files?.[0]) processFile(e.target.files[0]); }; i.click(); }} className="w-full flex items-center justify-center gap-3 py-5 bg-white border-2 border-slate-300 text-slate-700 font-bold rounded-2xl text-lg transition-colors shadow-sm">🖼️ Choose from Library</button>
               </div>
               <div {...getRootProps()} className={cn("hidden sm:flex border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all flex-col items-center gap-4", isDragActive ? "border-orange-500 bg-orange-50" : "border-slate-300 hover:border-orange-400 hover:bg-slate-100 bg-white")}>
                 <input {...getInputProps()} />
                 <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center"><Upload className="w-8 h-8 text-orange-500" /></div>
                 <div><p className="text-lg font-bold text-slate-900 mb-1">{isDragActive ? 'Drop it here' : 'Drag & drop your photo here'}</p><p className="text-slate-500 text-sm">or click to browse — JPG, PNG, WEBP, HEIC up to 10MB</p></div>
-                <div className="flex items-center gap-6 text-xs text-slate-400 mt-2"><span>🏠 Exteriors</span><span>🛋️ Living Rooms</span><span>🍳 Kitchens</span><span>🛏️ Bedrooms</span></div>
               </div>
               <p className="text-center text-xs text-slate-400 mt-4">Free to upload. 1 credit charged per download. Photos deleted after 24 hours.</p>
             </motion.div>
@@ -403,14 +302,9 @@ export function Editor() {
             <motion.div key="email" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-md mx-auto">
               {originalImage && (<div className="aspect-[4/3] rounded-2xl overflow-hidden bg-slate-200 shadow-sm mb-6"><img src={originalImage} alt="Your photo" className="w-full h-full object-cover" /></div>)}
               <div className="bg-white rounded-2xl border border-slate-200 p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center"><Mail className="w-5 h-5 text-orange-500" /></div>
-                  <div><h2 className="font-bold text-slate-900">Enter your email</h2><p className="text-sm text-slate-500">To access your credits and download photos</p></div>
-                </div>
-                <input type="email" value={emailInput} onChange={e => setEmailInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()}
-                  placeholder="you@brokerage.com" className="w-full border-2 border-slate-200 focus:border-orange-400 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-colors mb-4" autoFocus />
-                <button onClick={handleEmailSubmit} disabled={!emailInput.includes('@')}
-                  className="w-full py-3 bg-[#1E3A8A] hover:bg-blue-900 disabled:bg-slate-300 text-white font-bold rounded-xl transition-colors">Continue →</button>
+                <div className="flex items-center gap-3 mb-6"><div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center"><Mail className="w-5 h-5 text-orange-500" /></div><div><h2 className="font-bold text-slate-900">Enter your email</h2><p className="text-sm text-slate-500">To access your credits and download photos</p></div></div>
+                <input type="email" value={emailInput} onChange={e => setEmailInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()} placeholder="you@brokerage.com" className="w-full border-2 border-slate-200 focus:border-orange-400 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-colors mb-4" autoFocus />
+                <button onClick={handleEmailSubmit} disabled={!emailInput.includes('@')} className="w-full py-3 bg-[#1E3A8A] hover:bg-blue-900 disabled:bg-slate-300 text-white font-bold rounded-xl transition-colors">Continue →</button>
                 <p className="text-center text-xs text-slate-400 mt-3">No password needed. We use email to store your credits only.</p>
               </div>
             </motion.div>
@@ -424,32 +318,18 @@ export function Editor() {
                   <button onClick={handleReset} className="mt-3 text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1"><RotateCcw className="w-3 h-3" /> Upload different photo</button>
                 </div>
                 <div>
-                  {isAnalyzing ? (
-                    <div className="flex items-center gap-3 mb-6 bg-blue-50 rounded-xl p-4"><Loader2 className="w-5 h-5 animate-spin text-blue-500 shrink-0" /><div><p className="font-medium text-slate-900">Analyzing your photo...</p><p className="text-sm text-slate-500">Detecting room type</p></div></div>
-                  ) : (
-                    <div className="mb-4 bg-[#1E3A8A] rounded-xl p-4 text-white">
-                      <div className="flex items-center gap-2 mb-1"><Sparkles className="w-4 h-4 text-orange-400" /><span className="text-xs font-medium text-blue-300 uppercase tracking-wide">{roomType ? `Detected: ${roomType}` : 'Ready'}</span></div>
-                      <p className="font-semibold text-sm">{getGreeting(roomType)}</p>
-                    </div>
-                  )}
+                  {isAnalyzing ? (<div className="flex items-center gap-3 mb-6 bg-blue-50 rounded-xl p-4"><Loader2 className="w-5 h-5 animate-spin text-blue-500 shrink-0" /><div><p className="font-medium text-slate-900">Analyzing your photo...</p><p className="text-sm text-slate-500">Detecting room type</p></div></div>)
+                  : (<div className="mb-4 bg-[#1E3A8A] rounded-xl p-4 text-white"><div className="flex items-center gap-2 mb-1"><Sparkles className="w-4 h-4 text-orange-400" /><span className="text-xs font-medium text-blue-300 uppercase tracking-wide">{roomType ? `Detected: ${roomType}` : 'Ready'}</span></div><p className="font-semibold text-sm">{getGreeting(roomType)}</p></div>)}
                   {error && (<div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-700 text-sm"><AlertCircle className="w-4 h-4 shrink-0" />{error}</div>)}
                   <div className="space-y-2 mb-4">
-                    {options.map(option => {
-                      const selected = selectedOption === option.id;
-                      return (
-                        <button key={option.id} onClick={() => toggleOption(option.id)}
-                          className={cn("w-full flex items-center gap-4 p-4 border-2 rounded-xl text-left transition-all", selected ? "border-orange-500 bg-orange-50" : "border-slate-200 bg-white hover:border-orange-300 hover:bg-slate-50")}>
-                          {selected ? <CheckSquare className="w-5 h-5 text-orange-500 shrink-0" /> : <Square className="w-5 h-5 text-slate-300 shrink-0" />}
-                          <span className="text-xl shrink-0">{option.emoji}</span>
-                          <div className="flex-1 min-w-0"><div className="font-bold text-slate-900">{option.label}</div><div className="text-sm text-slate-500">{option.description}</div></div>
-                        </button>
-                      );
-                    })}
+                    {options.map(option => { const selected = selectedOption === option.id; return (
+                      <button key={option.id} onClick={() => setSelectedOption(option.id)} className={cn("w-full flex items-center gap-4 p-4 border-2 rounded-xl text-left transition-all", selected ? "border-orange-500 bg-orange-50" : "border-slate-200 bg-white hover:border-orange-300 hover:bg-slate-50")}>
+                        {selected ? <CheckSquare className="w-5 h-5 text-orange-500 shrink-0" /> : <Square className="w-5 h-5 text-slate-300 shrink-0" />}
+                        <span className="text-xl shrink-0">{option.emoji}</span>
+                        <div className="flex-1 min-w-0"><div className="font-bold text-slate-900">{option.label}</div><div className="text-sm text-slate-500">{option.description}</div></div>
+                      </button>); })}
                   </div>
-                  <button onClick={handleGenerateAll} disabled={!selectedOption || isAnalyzing}
-                    className="w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl flex items-center justify-center gap-2 transition-colors">
-                    <Wand2 className="w-5 h-5" />{!selectedOption ? 'Select an enhancement above' : 'Generate 4 Versions — 1 Credit'}
-                  </button>
+                  <button onClick={handleGenerateAll} disabled={!selectedOption || isAnalyzing} className="w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-black text-lg rounded-xl flex items-center justify-center gap-2 transition-colors"><Wand2 className="w-5 h-5" />{!selectedOption ? 'Select an enhancement above' : 'Generate 4 Versions — 1 Credit'}</button>
                   <p className="text-center text-xs text-slate-400 mt-2">Credit is only used when you download. Generation is free to preview.</p>
                 </div>
               </div>
@@ -462,94 +342,37 @@ export function Editor() {
               <h2 className="text-2xl font-black text-slate-900 mb-2">Generating 4 versions...</h2>
               <p className="text-slate-500 mb-1">Running your enhancement through AI 4 times for variety</p>
               <p className="text-sm font-semibold text-orange-500 mb-8">⏱ Usually takes 30–60 seconds — please don't close this tab</p>
-              <div className="max-w-sm mx-auto bg-slate-200 rounded-full h-3 overflow-hidden mb-3">
-                <motion.div className="h-full bg-orange-500 rounded-full" initial={{ width: '0%' }} animate={{ width: `${generatingProgress}%` }} transition={{ duration: 0.5 }} />
-              </div>
+              <div className="max-w-sm mx-auto bg-slate-200 rounded-full h-3 overflow-hidden mb-3"><motion.div className="h-full bg-orange-500 rounded-full" initial={{ width: '0%' }} animate={{ width: `${generatingProgress}%` }} transition={{ duration: 0.5 }} /></div>
               <p className="text-sm text-slate-400 mb-8">{generatingProgress}% complete</p>
-              <AnimatePresence mode="wait">
-                <motion.div key={currentTip} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                  className="bg-blue-50 border border-blue-100 rounded-xl px-6 py-4 max-w-sm mx-auto"><p className="text-sm font-medium text-blue-700">💡 {TIPS[currentTip]}</p></motion.div>
-              </AnimatePresence>
-              <p className="text-xs font-semibold text-orange-400 mt-6">⚠️ Photos are NOT stored — download immediately when ready</p>
+              <AnimatePresence mode="wait"><motion.div key={currentTip} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="bg-blue-50 border border-blue-100 rounded-xl px-6 py-4 max-w-sm mx-auto"><p className="text-sm font-medium text-blue-700">💡 {TIPS[currentTip]}</p></motion.div></AnimatePresence>
             </motion.div>
           )}
 
           {step === 'result' && originalImage && tileImages.length > 0 && (
             <motion.div key="result" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
               <div className="text-center mb-6">
-                <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-bold mb-4">
-                  ✓ {tileImages.length} version{tileImages.length > 1 ? 's' : ''} generated{hasDownloaded ? ' — 1 credit used' : ' — pick your favorite to download'}
-                </div>
+                <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-bold mb-4">✓ {tileImages.length} version{tileImages.length > 1 ? 's' : ''} generated{hasDownloaded ? ' — 1 credit used' : ' — pick your favorite to download'}</div>
                 {selectedOptionObj && (<h2 className="text-2xl font-black text-slate-900">{selectedOptionObj.emoji} {selectedOptionObj.label}</h2>)}
               </div>
-
-              {tileImages.length > 1 && (
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  {tileImages.map((img, i) => (
-                    <button key={i} onClick={() => setSelectedTile(i)}
-                      className={cn("relative rounded-xl overflow-hidden border-3 transition-all", selectedTile === i ? "border-orange-500 ring-2 ring-orange-300 ring-offset-1" : "border-slate-200 hover:border-orange-300")}>
-                      <img src={img} alt={`Version ${i + 1}`} className="w-full aspect-[4/3] object-cover" />
-                      <div className={cn("absolute bottom-0 left-0 right-0 text-center text-sm py-1.5 font-bold", selectedTile === i ? "bg-orange-500 text-white" : "bg-black/40 text-white/80")}>
-                        Version {i + 1} {selectedTile === i && '✓'}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="rounded-2xl overflow-hidden shadow-xl border border-slate-200 aspect-[4/3] sm:aspect-[16/9] mb-4 bg-slate-900">
-                <ImageComparison beforeImage={originalImage} afterImage={tileImages[selectedTile]} objectFit="contain" />
-              </div>
+              {tileImages.length > 1 && (<div className="grid grid-cols-2 gap-3 mb-6">{tileImages.map((img, i) => (<button key={i} onClick={() => setSelectedTile(i)} className={cn("relative rounded-xl overflow-hidden border-3 transition-all", selectedTile === i ? "border-orange-500 ring-2 ring-orange-300 ring-offset-1" : "border-slate-200 hover:border-orange-300")}><img src={img} alt={`Version ${i + 1}`} className="w-full aspect-[4/3] object-cover" /><div className={cn("absolute bottom-0 left-0 right-0 text-center text-sm py-1.5 font-bold", selectedTile === i ? "bg-orange-500 text-white" : "bg-black/40 text-white/80")}>Version {i + 1} {selectedTile === i && '✓'}</div></button>))}</div>)}
+              <div className="rounded-2xl overflow-hidden shadow-xl border border-slate-200 aspect-[4/3] sm:aspect-[16/9] mb-4 bg-slate-900"><ImageComparison beforeImage={originalImage} afterImage={tileImages[selectedTile]} objectFit="contain" /></div>
               <p className="text-center text-sm text-slate-500 mb-4">↕ Drag the handle to compare before & after</p>
-
               <div className="flex items-center justify-center gap-3 mb-4 bg-slate-100 rounded-xl p-3 max-w-sm mx-auto">
-                <button onClick={() => setWatermarkEnabled(!watermarkEnabled)}
-                  className={cn("relative w-10 h-5 rounded-full transition-colors", watermarkEnabled ? "bg-orange-500" : "bg-slate-300")}>
-                  <div className={cn("absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform", watermarkEnabled ? "translate-x-5" : "translate-x-0.5")} />
-                </button>
-                <span className="text-sm text-slate-600">
-                  {watermarkEnabled ? <span>Watermark <strong>on</strong> — <span className="text-slate-400">SmartStageAgent.com</span></span> : <span>Watermark <strong>off</strong></span>}
-                </span>
+                <button onClick={() => setWatermarkEnabled(!watermarkEnabled)} className={cn("relative w-10 h-5 rounded-full transition-colors", watermarkEnabled ? "bg-orange-500" : "bg-slate-300")}><div className={cn("absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform", watermarkEnabled ? "translate-x-5" : "translate-x-0.5")} /></button>
+                <span className="text-sm text-slate-600">{watermarkEnabled ? <span>Watermark <strong>on</strong> — <span className="text-slate-400">SmartStageAgent.com</span></span> : <span>Watermark <strong>off</strong></span>}</span>
               </div>
-
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-center sm:flex-wrap">
-                {(credits > 0 || hasDownloaded) ? (
-                  <button onClick={() => handleDownload(tileImages[selectedTile])}
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-[#1E3A8A] hover:bg-blue-900 text-white font-bold rounded-xl transition-colors">
-                    <Download className="w-5 h-5" />{hasDownloaded ? `Download Version ${selectedTile + 1} (Free)` : `Download Version ${selectedTile + 1} — 1 Credit`}
-                  </button>
-                ) : (
-                  <button onClick={() => setShowCreditWarning(true)}
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-colors">
-                    <Download className="w-5 h-5" /> Buy Credits to Download
-                  </button>
-                )}
-                <button onClick={handleRetry} className="flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl border-2 border-slate-200 transition-colors">
-                  <RotateCcw className="w-4 h-4 text-orange-500" /> Regenerate (free)
-                </button>
-                <button onClick={handleTryAnother} className="flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl border-2 border-slate-200 transition-colors">
-                  <Wand2 className="w-5 h-5 text-orange-500" /> Different Enhancement
-                </button>
-                <button onClick={handleReset} className="flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-500 font-medium rounded-xl border border-slate-200 transition-colors">
-                  <Upload className="w-4 h-4" /> New Photo
-                </button>
+                {(credits > 0 || hasDownloaded) ? (<button onClick={() => handleDownload(tileImages[selectedTile])} className="flex items-center justify-center gap-2 px-6 py-3 bg-[#1E3A8A] hover:bg-blue-900 text-white font-bold rounded-xl transition-colors"><Download className="w-5 h-5" />{hasDownloaded ? `Download Version ${selectedTile + 1} (Free)` : `Download Version ${selectedTile + 1} — 1 Credit`}</button>)
+                : (<button onClick={() => setShowCreditWarning(true)} className="flex items-center justify-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-colors"><Download className="w-5 h-5" /> Buy Credits to Download</button>)}
+                <button onClick={handleRetry} className="flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl border-2 border-slate-200 transition-colors"><RotateCcw className="w-4 h-4 text-orange-500" /> Regenerate (free)</button>
+                <button onClick={handleTryAnother} className="flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl border-2 border-slate-200 transition-colors"><Wand2 className="w-5 h-5 text-orange-500" /> Different Enhancement</button>
+                <button onClick={handleReset} className="flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-500 font-medium rounded-xl border border-slate-200 transition-colors"><Upload className="w-4 h-4" /> New Photo</button>
               </div>
-
               {hasDownloaded && (<p className="text-center text-xs text-green-600 font-medium mt-3">✓ Credit used — download any version for free</p>)}
               <p className="text-center text-xs text-slate-400 mt-4">⚠️ Photos NOT stored — deleted after 24 hours. Download now. AI-enhanced — disclose per your MLS.</p>
-
               <div className="mt-4">
-                {reportSent ? (
-                  <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 text-center">
-                    <p className="text-green-700 font-bold">✓ Report sent!</p>
-                    <p className="text-green-600 text-sm mt-1">We'll review and make it right within 24 hours. Check your email for confirmation.</p>
-                  </div>
-                ) : (
-                  <button onClick={() => setShowReportModal(true)}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-red-50 hover:bg-red-100 border-2 border-red-200 hover:border-red-300 text-red-600 font-bold rounded-xl transition-colors">
-                    <AlertCircle className="w-5 h-5" />Not happy? Report this result — we'll fix it or refund your credit
-                  </button>
-                )}
+                {reportSent ? (<div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 text-center"><p className="text-green-700 font-bold">✓ Report sent!</p><p className="text-green-600 text-sm mt-1">We'll review and make it right within 24 hours.</p></div>)
+                : (<button onClick={() => setShowReportModal(true)} className="w-full flex items-center justify-center gap-2 py-3 bg-red-50 hover:bg-red-100 border-2 border-red-200 hover:border-red-300 text-red-600 font-bold rounded-xl transition-colors"><AlertCircle className="w-5 h-5" />Not happy? Report this result — we'll fix it or refund your credit</button>)}
               </div>
             </motion.div>
           )}
@@ -561,19 +384,22 @@ export function Editor() {
       <AnimatePresence>
         {showCreditWarning && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 max-h-[90vh] overflow-y-auto">
               <h3 className="text-xl font-bold text-slate-900 mb-1">Get Credits</h3>
-              <p className="text-slate-500 text-sm mb-6">1 credit = 4 AI versions of one photo. Download your favorite.</p>
-              {email.endsWith('@orchard.com') && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 mb-3 text-xs text-blue-700 font-medium">🏡 Orchard agent pricing applied — $1/credit on 20+ packs</div>
-              )}
+              <p className="text-slate-500 text-sm mb-4">1 credit = 4 AI versions of one photo. Download your favorite.</p>
+              {email.endsWith('@orchard.com') && (<div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 mb-3 text-xs text-blue-700 font-medium">🏡 Orchard agent pricing applied — $1/credit on 20+ packs</div>)}
+              {appliedPromo && (<div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2 mb-3 text-xs text-green-700 font-medium flex items-center justify-between">🎉 Promo <strong className="mx-1">{appliedPromo}</strong> applied — special pricing below!<button onClick={() => { setAppliedPromo(''); setPromoSuccess(''); }} className="text-green-400 hover:text-green-600 ml-2 text-[10px]">✕ Remove</button></div>)}
               <div className="space-y-2 mb-4">
                 {(email.endsWith('@orchard.com') ? [
                   { id: '1pack', label: '1 Photo Batch', price: '$5', note: '', popular: false },
                   { id: '5pack', label: '5 Photo Batches', price: '$20', note: '', popular: false },
                   { id: 'orchard20', label: '20 Photo Batches', price: '$20', note: '$1/credit', popular: true },
                   { id: 'orchard50', label: '50 Photo Batches', price: '$50', note: '$1/credit', popular: false },
+                ] : appliedPromo === 'LAUNCH20' ? [
+                  { id: '1pack', label: '1 Photo Batch', price: '$5', note: '', popular: false },
+                  { id: '5pack', label: '5 Photo Batches', price: '$20', note: '$4/credit', popular: false },
+                  { id: 'promo20', label: '20 Photo Batches', price: '$20', note: '$1/credit', popular: true },
+                  { id: 'promo50', label: '50 Photo Batches', price: '$50', note: '$1/credit', popular: false },
                 ] : [
                   { id: '1pack', label: '1 Photo Batch', price: '$5', note: '', popular: false },
                   { id: '5pack', label: '5 Photo Batches', price: '$20', note: '$4/credit', popular: true },
@@ -582,68 +408,56 @@ export function Editor() {
                 ]).map(pkg => (
                   <button key={pkg.id} onClick={async () => {
                     if (!email) { setShowCreditWarning(false); setStep('email'); return; }
-                    const res = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ packageId: pkg.id, email }) });
-                    const data = await res.json(); if (data.url) window.location.href = data.url;
+                    const res = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ packageId: pkg.id, email, promoCode: appliedPromo || undefined }) });
+                    const data = await res.json();
+                    if (res.status === 409) { setAppliedPromo(''); setPromoError(data.error || 'Promo code already used'); return; }
+                    if (data.url) window.location.href = data.url;
                   }} className={cn("w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all text-left", pkg.popular ? "border-orange-500 bg-orange-50" : "border-slate-200 hover:border-orange-300")}>
-                    <span className="font-bold text-slate-900">
-                      {pkg.label}
-                      {pkg.popular && <span className="ml-2 text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded-full uppercase">Best Value</span>}
-                      {pkg.note && <span className="ml-2 text-[10px] text-slate-400">{pkg.note}</span>}
-                    </span>
+                    <span className="font-bold text-slate-900">{pkg.label}{pkg.popular && <span className="ml-2 text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded-full uppercase">Best Value</span>}{pkg.note && <span className="ml-2 text-[10px] text-slate-400">{pkg.note}</span>}</span>
                     <span className="font-bold text-[#1E3A8A]">{pkg.price}</span>
                   </button>
                 ))}
               </div>
-              <button onClick={() => setShowCreditWarning(false)} className="w-full text-sm text-slate-500 hover:text-slate-700 py-2">Cancel</button>
+
+              {/* Promo Code Section */}
+              <div className="border-t border-slate-200 pt-4 mt-2">
+                <p className="text-sm font-bold text-slate-700 mb-2">Have a promo code?</p>
+                <div className="flex gap-2">
+                  <input value={promoInput} onChange={e => { setPromoInput(e.target.value.toUpperCase()); setPromoError(''); setPromoSuccess(''); }}
+                    placeholder="Enter code" className="flex-1 border-2 border-slate-200 focus:border-orange-400 rounded-xl px-3 py-2 text-slate-900 text-sm uppercase font-bold outline-none transition-colors" onKeyDown={e => e.key === 'Enter' && handleApplyPromo()} />
+                  <button onClick={handleApplyPromo} disabled={promoLoading || !promoInput.trim()}
+                    className="px-4 py-2 bg-[#1E3A8A] hover:bg-blue-900 disabled:bg-slate-300 text-white font-bold rounded-xl text-sm transition-colors whitespace-nowrap">{promoLoading ? '...' : 'Apply'}</button>
+                </div>
+                {promoError && <p className="text-red-500 text-xs mt-1">{promoError}</p>}
+                {promoSuccess && <p className="text-green-600 text-xs mt-1 font-bold">{promoSuccess}</p>}
+              </div>
+
+              <button onClick={() => { setShowCreditWarning(false); setPromoInput(''); setPromoError(''); setPromoSuccess(''); }} className="w-full text-sm text-slate-500 hover:text-slate-700 py-2 mt-3">Cancel</button>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* Report Bad Result Modal */}
+      {/* Report Modal */}
       <AnimatePresence>
         {showReportModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 my-8">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 my-8">
               <h3 className="text-xl font-bold text-slate-900 mb-1">Report Bad Result</h3>
-              <p className="text-slate-500 text-sm mb-4">We take every report seriously. Your original photo and the result will be attached automatically.</p>
-              <div className="bg-slate-50 rounded-xl p-3 mb-4 text-sm text-slate-600">
-                <p><strong>Room:</strong> {roomType} &nbsp;|&nbsp; <strong>Enhancement:</strong> {selectedOptionObj?.emoji} {selectedOptionObj?.label} &nbsp;|&nbsp; <strong>Version:</strong> {selectedTile + 1}</p>
-              </div>
+              <p className="text-slate-500 text-sm mb-4">Your original photo and the result will be attached automatically.</p>
+              <div className="bg-slate-50 rounded-xl p-3 mb-4 text-sm text-slate-600"><p><strong>Room:</strong> {roomType} | <strong>Enhancement:</strong> {selectedOptionObj?.emoji} {selectedOptionObj?.label} | <strong>Version:</strong> {selectedTile + 1}</p></div>
               <label className="block text-sm font-bold text-slate-700 mb-1">What went wrong?</label>
-              <select value={reportIssueType} onChange={e => setReportIssueType(e.target.value)}
-                className={cn("w-full border-2 rounded-xl px-4 py-3 text-slate-900 outline-none transition-colors mb-4 bg-white", reportIssueType ? "border-slate-300" : "border-red-300")}>
-                <option value="">Select an issue...</option>
-                <option value="AI changed the layout">AI changed the layout (moved appliances, walls, etc.)</option>
-                <option value="AI added items that don't exist">AI added items that don't exist</option>
-                <option value="AI removed items that should stay">AI removed items that should stay</option>
-                <option value="Result looks fake or unrealistic">Result looks fake or unrealistic</option>
-                <option value="Wrong room type detected">Wrong room type detected</option>
-                <option value="No result generated">No result generated / generation failed</option>
-                <option value="Other issue">Other issue</option>
+              <select value={reportIssueType} onChange={e => setReportIssueType(e.target.value)} className={cn("w-full border-2 rounded-xl px-4 py-3 text-slate-900 outline-none transition-colors mb-4 bg-white", reportIssueType ? "border-slate-300" : "border-red-300")}>
+                <option value="">Select an issue...</option><option value="AI changed the layout">AI changed the layout</option><option value="AI added items that don't exist">AI added items that don't exist</option><option value="AI removed items that should stay">AI removed items that should stay</option><option value="Result looks fake or unrealistic">Result looks fake or unrealistic</option><option value="Wrong room type detected">Wrong room type detected</option><option value="No result generated">No result generated</option><option value="Other issue">Other issue</option>
               </select>
               <label className="block text-sm font-bold text-slate-700 mb-1">How would you like us to fix this?</label>
-              <select value={reportRemedy} onChange={e => setReportRemedy(e.target.value)}
-                className={cn("w-full border-2 rounded-xl px-4 py-3 text-slate-900 outline-none transition-colors mb-4 bg-white", reportRemedy ? "border-slate-300" : "border-red-300")}>
-                <option value="">Select a remedy...</option>
-                <option value="Credit my account">Credit my account (refund the credit)</option>
-                <option value="Have your team edit the photo">Have your team edit the photo manually</option>
-                <option value="Both - credit and edit">Both — credit my account AND edit the photo</option>
+              <select value={reportRemedy} onChange={e => setReportRemedy(e.target.value)} className={cn("w-full border-2 rounded-xl px-4 py-3 text-slate-900 outline-none transition-colors mb-4 bg-white", reportRemedy ? "border-slate-300" : "border-red-300")}>
+                <option value="">Select a remedy...</option><option value="Credit my account">Credit my account</option><option value="Have your team edit the photo">Have your team edit the photo</option><option value="Both - credit and edit">Both — credit and edit</option>
               </select>
               <label className="block text-sm font-bold text-slate-700 mb-1">Additional details <span className="font-normal text-slate-400">(optional)</span></label>
-              <textarea value={reportNotes} onChange={e => setReportNotes(e.target.value)}
-                placeholder="E.g. 'The oven was moved to the wrong wall' or 'Cabinets were changed to open shelving'"
-                className="w-full border-2 border-slate-200 focus:border-orange-400 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-colors mb-4 text-sm resize-none" rows={2} />
-              <div className="bg-blue-50 rounded-xl px-3 py-2 mb-4 text-xs text-blue-600 flex items-center gap-2">
-                <Info className="w-4 h-4 shrink-0" />Your original photo and the selected result will be attached automatically.
-              </div>
-              <button onClick={handleReport} disabled={reportSubmitting || !reportIssueType || !reportRemedy}
-                className="w-full py-3 bg-red-500 hover:bg-red-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors mb-2">
-                {reportSubmitting ? 'Sending report...' : 'Submit Report'}
-              </button>
-              <button onClick={() => { setShowReportModal(false); setReportNotes(''); setReportIssueType(''); setReportRemedy(''); }}
-                className="w-full text-sm text-slate-500 hover:text-slate-700 py-2">Cancel</button>
+              <textarea value={reportNotes} onChange={e => setReportNotes(e.target.value)} placeholder="E.g. 'The oven was moved to the wrong wall'" className="w-full border-2 border-slate-200 focus:border-orange-400 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 outline-none transition-colors mb-4 text-sm resize-none" rows={2} />
+              <button onClick={handleReport} disabled={reportSubmitting || !reportIssueType || !reportRemedy} className="w-full py-3 bg-red-500 hover:bg-red-600 disabled:bg-slate-300 text-white font-bold rounded-xl transition-colors mb-2">{reportSubmitting ? 'Sending...' : 'Submit Report'}</button>
+              <button onClick={() => { setShowReportModal(false); setReportNotes(''); setReportIssueType(''); setReportRemedy(''); }} className="w-full text-sm text-slate-500 hover:text-slate-700 py-2">Cancel</button>
             </motion.div>
           </div>
         )}
