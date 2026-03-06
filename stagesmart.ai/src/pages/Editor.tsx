@@ -363,7 +363,7 @@ export function Editor() {
     if (!promoInput.trim()) return; setPromoLoading(true); setPromoError(''); setPromoSuccess('');
     try { const r = await fetch('/api/redeem-promo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: promoInput, email }) }); const d = await r.json();
       if (r.ok && d.success) { setCredits(d.credits); setPromoSuccess(`${d.creditsAdded} free credits added!`); setPromoInput(''); setTimeout(() => { setPromoSuccess(''); setShowCreditWarning(false); }, 3000); }
-      else { const known = ['LAUNCH20']; if (known.includes(promoInput.toUpperCase().trim())) { setAppliedPromo(promoInput.toUpperCase().trim()); setPromoSuccess('Special pricing unlocked!'); setPromoInput(''); } else setPromoError(d.error || 'Invalid code'); }
+      else { const known = ['LAUNCH20', 'HARES2026']; if (known.includes(promoInput.toUpperCase().trim())) { setAppliedPromo(promoInput.toUpperCase().trim()); setPromoSuccess('Special pricing unlocked!'); setPromoInput(''); } else setPromoError(d.error || 'Invalid code'); }
     } catch { setPromoError('Failed to apply code'); } finally { setPromoLoading(false); }
   };
 
@@ -406,7 +406,7 @@ export function Editor() {
               </div>
               <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <p className="font-bold text-amber-800 text-sm mb-2">💡 Tips for Best Results</p>
-                <div className="text-xs text-amber-700 space-y-1"><p>• Use highest resolution originals — don't screenshot from MLS</p><p>• Landscape orientation works best</p><p>• <strong>Pro tip:</strong> Brighten ALL your listing photos — biggest upgrade for any listing ($25-40 for a full set)</p></div>
+                <div className="text-xs text-amber-700 space-y-1"><p>• Use highest resolution originals — don't screenshot from MLS</p><p>• Landscape orientation works best</p><p>• Well-lit starting photos produce the best AI results</p></div>
               </div>
             </motion.div>
           )}
@@ -504,10 +504,15 @@ export function Editor() {
               </div>
               {hasDownloaded && (<p className="text-center text-xs text-green-600 font-medium mt-3">✓ Credit used — download any version free</p>)}
 
-              {!isOutdoor(roomType) && selectedOption !== 'brighten' && hasDownloaded && (
-                <div className="mt-6 bg-amber-50 border-2 border-amber-200 rounded-xl p-4 text-center">
-                  <p className="font-bold text-amber-800 text-sm">🔥 Love the result? Brighten ALL your listing photos!</p>
-                  <p className="text-xs text-amber-700 mt-1">Most agents brighten 25-40 photos per listing for $25-40 total. Biggest upgrade to any listing.</p>
+              {hasDownloaded && (
+                <div className="mt-6 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl p-5 text-center">
+                  <p className="font-black text-amber-900 text-base mb-1">🔥 Upgrade Your Entire Listing</p>
+                  <p className="text-sm text-amber-800 mb-3">Brighten & declutter <strong>every photo</strong> in your listing — the single biggest upgrade you can make.</p>
+                  <div className="inline-flex items-center gap-2 bg-white rounded-lg px-4 py-2 border border-amber-200 mb-3">
+                    <span className="text-amber-900 font-bold">25 photos for $25</span>
+                    <span className="text-xs text-amber-600">($1/photo — brighten + declutter)</span>
+                  </div>
+                  <p className="text-xs text-amber-700">Most agents do 25-40 photos per listing. Coming soon — bulk upload!</p>
                 </div>
               )}
 
@@ -535,7 +540,7 @@ export function Editor() {
                 { id: '5pack', label: '5 Photos', price: '$20', note: '', popular: false },
                 { id: 'orchard20', label: '20 Photos', price: '$20', note: '$1/photo', popular: true },
                 { id: 'orchard50', label: '50 Photos', price: '$50', note: '$1/photo', popular: false },
-              ] : appliedPromo === 'LAUNCH20' ? [
+              ] : (appliedPromo === 'LAUNCH20' || appliedPromo === 'HARES2026') ? [
                 { id: '1pack', label: '1 Photo', price: '$5', note: '', popular: false },
                 { id: '5pack', label: '5 Photos', price: '$20', note: '$4/photo', popular: false },
                 { id: 'promo20', label: '20 Photos', price: '$20', note: '$1/photo', popular: true },
