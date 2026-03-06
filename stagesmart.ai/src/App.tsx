@@ -15,12 +15,8 @@ function Nav() {
           SmartStageAgent<span className="text-orange-400">.com</span>
         </Link>
         <nav className="flex items-center gap-6 text-sm font-medium">
-          <Link to="/" className={`hover:text-orange-300 transition-colors ${location.pathname === '/' ? 'text-orange-300' : ''}`}>
-            Home
-          </Link>
-          <Link to="/editor" className={`hover:text-orange-300 transition-colors flex items-center gap-1 ${location.pathname === '/editor' ? 'text-orange-300' : ''}`}>
-            <ImageIcon className="w-4 h-4" /> Enhance Photos
-          </Link>
+          <Link to="/" className={`hover:text-orange-300 transition-colors ${location.pathname === '/' ? 'text-orange-300' : ''}`}>Home</Link>
+          <Link to="/editor" className={`hover:text-orange-300 transition-colors flex items-center gap-1 ${location.pathname === '/editor' ? 'text-orange-300' : ''}`}><ImageIcon className="w-4 h-4" /> Enhance Photos</Link>
         </nav>
       </div>
     </header>
@@ -28,13 +24,6 @@ function Nav() {
 }
 
 function AppLayout() {
-  const location = useLocation();
-  const isAdmin = location.pathname === '/admin';
-
-  if (isAdmin) {
-    return <Admin />;
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
       <Nav />
