@@ -24,6 +24,12 @@ const PROMO_PACKAGES: Record<string, Record<string, { amount: number; credits: n
     'promo20':   { amount: 2000,  credits: 20, name: '20 Photo Credits (Launch Deal)' },
     'promo50':   { amount: 5000,  credits: 50, name: '50 Photo Credits (Launch Deal)' },
   },
+  'HARES2026': {
+    '1pack':     { amount: 500,   credits: 1,  name: '1 Photo Credit' },
+    '5pack':     { amount: 2000,  credits: 5,  name: '5 Photo Credits' },
+    'promo20':   { amount: 2000,  credits: 20, name: '20 Photo Credits (Special)' },
+    'promo50':   { amount: 5000,  credits: 50, name: '50 Photo Credits (Special)' },
+  },
 };
 
 function isOrchardEmail(email: string): boolean {
