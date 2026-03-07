@@ -250,6 +250,7 @@ export function Editor() {
   const [generatingProgress, setGeneratingProgress] = useState(0);
   const [currentTip, setCurrentTip] = useState(0);
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
+  const [isPortrait, setIsPortrait] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportNotes, setReportNotes] = useState('');
@@ -295,6 +296,9 @@ export function Editor() {
     if (!file) return; setError(null); setSelectedOption(null); setActiveToggles([]); setTileImages([]); setHasDownloaded(false);
     const comp = await compressImage(file); setOriginalImage(URL.createObjectURL(comp)); setCurrentFile(comp);
     const b64 = await fileToBase64(comp); setBase64Image(b64);
+    // Detect portrait orientation
+    const img = new Image(); img.src = b64;
+    img.onload = () => setIsPortrait(img.height > img.width);
     if (!email) { setStep('email'); return; }
     setStep('options'); await analyzeRoom(comp);
   }, [email, analyzeRoom]);
@@ -486,11 +490,11 @@ export function Editor() {
 
               {tileImages.length > 1 && (<div className="grid grid-cols-2 gap-3 mb-6">{tileImages.map((img, i) => (
                 <button key={i} onClick={() => setSelectedTile(i)} className={cn("relative rounded-xl overflow-hidden border-3 transition-all", selectedTile === i ? "border-orange-500 ring-2 ring-orange-300 ring-offset-1" : "border-slate-200 hover:border-orange-300")}>
-                  <img src={img} alt={tileLabels[i]} className="w-full aspect-[4/3] object-cover" />
+                  <img src={img} alt={tileLabels[i]} className={cn("w-full object-cover", isPortrait ? "aspect-[3/4]" : "aspect-[4/3]")} />
                   <div className={cn("absolute bottom-0 left-0 right-0 text-center text-xs py-1.5 font-bold", selectedTile === i ? "bg-orange-500 text-white" : "bg-black/40 text-white/80")}>{tileLabels[i] || `V${i + 1}`} {selectedTile === i && '✓'}</div>
                 </button>))}</div>)}
 
-              <div className="rounded-2xl overflow-hidden shadow-xl border border-slate-200 aspect-[4/3] sm:aspect-[16/9] mb-4 bg-slate-900"><ImageComparison beforeImage={originalImage} afterImage={tileImages[selectedTile]} objectFit="contain" /></div>
+              <div className={cn("rounded-2xl overflow-hidden shadow-xl border border-slate-200 mb-4 bg-slate-900", isPortrait ? "aspect-[3/4] max-w-md mx-auto" : "aspect-[4/3] sm:aspect-[16/9]")}><ImageComparison beforeImage={originalImage} afterImage={tileImages[selectedTile]} objectFit="contain" /></div>
               <p className="text-center text-sm text-slate-500 mb-4">↕ Drag to compare</p>
 
               <div className="flex items-center justify-center gap-3 mb-4 bg-slate-100 rounded-xl p-3 max-w-sm mx-auto">
