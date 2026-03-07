@@ -262,6 +262,9 @@ export function Editor() {
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoSuccess, setPromoSuccess] = useState('');
   const [appliedPromo, setAppliedPromo] = useState('');
+  const [showUpsell, setShowUpsell] = useState(false);
+  const [upsellPkg, setUpsellPkg] = useState<{ id: string; label: string; price: number; credits: number } | null>(null);
+  const [addOnCount, setAddOnCount] = useState(0);
 
   useEffect(() => {
     const saved = localStorage.getItem('ssa_email');
@@ -506,13 +509,11 @@ export function Editor() {
 
               {hasDownloaded && (
                 <div className="mt-6 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl p-5 text-center">
-                  <p className="font-black text-amber-900 text-base mb-1">🔥 Upgrade Your Entire Listing</p>
-                  <p className="text-sm text-amber-800 mb-3">Brighten & declutter <strong>every photo</strong> in your listing — the single biggest upgrade you can make.</p>
-                  <div className="inline-flex items-center gap-2 bg-white rounded-lg px-4 py-2 border border-amber-200 mb-3">
-                    <span className="text-amber-900 font-bold">25 photos for $25</span>
-                    <span className="text-xs text-amber-600">($1/photo — brighten + declutter)</span>
-                  </div>
-                  <p className="text-xs text-amber-700">Most agents do 25-40 photos per listing. Coming soon — bulk upload!</p>
+                  <p className="font-black text-amber-900 text-base mb-1">🔥 Make Your Whole Listing Shine</p>
+                  <p className="text-sm text-amber-800 mb-3">Top agents don't just stage the hero shots — they brighten & declutter <strong>every photo</strong> in the listing. It's the single biggest upgrade you can make.</p>
+                  <button onClick={() => setShowCreditWarning(true)} className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-5 py-2.5 font-bold shadow transition-colors">
+                    <Sparkles className="w-4 h-4" /> Get More Credits
+                  </button>
                 </div>
               )}
 
@@ -536,25 +537,27 @@ export function Editor() {
             {appliedPromo && (<div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2 mb-3 text-xs text-green-700 font-medium flex items-center justify-between">🎉 <strong className="mx-1">{appliedPromo}</strong> applied!<button onClick={() => { setAppliedPromo(''); setPromoSuccess(''); }} className="text-green-400 hover:text-green-600 text-[10px]">✕</button></div>)}
             <div className="space-y-2 mb-4">
               {(email.endsWith('@orchard.com') ? [
-                { id: '1pack', label: '1 Photo', price: '$5', note: '', popular: false },
-                { id: '5pack', label: '5 Photos', price: '$20', note: '', popular: false },
-                { id: 'orchard20', label: '20 Photos', price: '$20', note: '$1/photo', popular: true },
-                { id: 'orchard50', label: '50 Photos', price: '$50', note: '$1/photo', popular: false },
+                { id: '1pack', label: '1 Photo', price: '$5', priceNum: 5, credits: 1, note: '', popular: false },
+                { id: '5pack', label: '5 Photos', price: '$20', priceNum: 20, credits: 5, note: '', popular: false },
+                { id: 'orchard20', label: '20 Photos', price: '$20', priceNum: 20, credits: 20, note: '$1/photo', popular: true },
+                { id: 'orchard50', label: '50 Photos', price: '$50', priceNum: 50, credits: 50, note: '$1/photo', popular: false },
               ] : (appliedPromo === 'LAUNCH20' || appliedPromo === 'HARES2026') ? [
-                { id: '1pack', label: '1 Photo', price: '$5', note: '', popular: false },
-                { id: '5pack', label: '5 Photos', price: '$20', note: '$4/photo', popular: false },
-                { id: 'promo20', label: '20 Photos', price: '$20', note: '$1/photo', popular: true },
-                { id: 'promo50', label: '50 Photos', price: '$50', note: '$1/photo', popular: false },
+                { id: '1pack', label: '1 Photo', price: '$5', priceNum: 5, credits: 1, note: '', popular: false },
+                { id: '5pack', label: '5 Photos', price: '$20', priceNum: 20, credits: 5, note: '$4/photo', popular: false },
+                { id: 'promo20', label: '20 Photos', price: '$20', priceNum: 20, credits: 20, note: '$1/photo', popular: true },
+                { id: 'promo50', label: '50 Photos', price: '$50', priceNum: 50, credits: 50, note: '$1/photo', popular: false },
               ] : [
-                { id: '1pack', label: '1 Photo', price: '$5', note: '', popular: false },
-                { id: '5pack', label: '5 Photos', price: '$20', note: '$4/photo', popular: true },
-                { id: '10pack', label: '10 Photos', price: '$30', note: '$3/photo', popular: false },
-                { id: '25pack', label: '25 Photos', price: '$50', note: '$2/photo', popular: false },
+                { id: '1pack', label: '1 Photo', price: '$5', priceNum: 5, credits: 1, note: '', popular: false },
+                { id: '5pack', label: '5 Photos', price: '$20', priceNum: 20, credits: 5, note: '$4/photo', popular: true },
+                { id: '10pack', label: '10 Photos', price: '$30', priceNum: 30, credits: 10, note: '$3/photo', popular: false },
+                { id: '25pack', label: '25 Photos', price: '$50', priceNum: 50, credits: 25, note: '$2/photo', popular: false },
               ]).map(pkg => (
-                <button key={pkg.id} onClick={async () => {
+                <button key={pkg.id} onClick={() => {
                   if (!email) { setShowCreditWarning(false); setStep('email'); return; }
-                  const r = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ packageId: pkg.id, email, promoCode: appliedPromo || undefined }) });
-                  const d = await r.json(); if (r.status === 409) { setAppliedPromo(''); setPromoError(d.error || 'Promo already used'); return; } if (d.url) window.location.href = d.url;
+                  setUpsellPkg({ id: pkg.id, label: pkg.label, price: pkg.priceNum, credits: pkg.credits });
+                  setAddOnCount(0);
+                  setShowCreditWarning(false);
+                  setShowUpsell(true);
                 }} className={cn("w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all text-left", pkg.popular ? "border-orange-500 bg-orange-50" : "border-slate-200 hover:border-orange-300")}>
                   <span className="font-bold text-slate-900">{pkg.label}{pkg.popular && <span className="ml-2 text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded-full uppercase">Best Value</span>}{pkg.note && <span className="ml-2 text-[10px] text-slate-400">{pkg.note}</span>}</span>
                   <span className="font-bold text-[#1E3A8A]">{pkg.price}</span>
@@ -573,6 +576,67 @@ export function Editor() {
           </motion.div>
         </div>
       )}</AnimatePresence>
+
+      {/* Upsell Modal — "Double Your Credits" */}
+      {showUpsell && upsellPkg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            <h3 className="text-xl font-bold text-slate-900 mb-1">Double Your Order?</h3>
+            <p className="text-slate-500 text-sm mb-5">Add up to {upsellPkg.credits} bonus credits for just <strong>$1 each</strong> — brighten, declutter, or enhance more photos.</p>
+
+            <div className="bg-slate-50 rounded-xl p-4 mb-4">
+              <div className="flex justify-between text-sm mb-3">
+                <span className="text-slate-600">{upsellPkg.label}</span>
+                <span className="font-bold text-slate-900">${upsellPkg.price}</span>
+              </div>
+              {addOnCount > 0 && (
+                <div className="flex justify-between text-sm mb-3">
+                  <span className="text-orange-600">{addOnCount} Bonus Credit{addOnCount !== 1 ? 's' : ''} × $1</span>
+                  <span className="font-bold text-orange-600">+${addOnCount}</span>
+                </div>
+              )}
+              <div className="border-t border-slate-200 pt-3 flex justify-between">
+                <span className="font-black text-slate-900">Total</span>
+                <div className="text-right">
+                  <span className="font-black text-[#1E3A8A] text-lg">${upsellPkg.price + addOnCount}</span>
+                  <span className="block text-[10px] text-slate-400">{upsellPkg.credits + addOnCount} credits — ${((upsellPkg.price + addOnCount) / (upsellPkg.credits + addOnCount)).toFixed(2)}/credit</span>
+                </div>
+              </div>
+            </div>
+
+            {upsellPkg.credits > 1 && (
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-bold text-slate-700">Bonus credits</span>
+                  <span className="text-sm font-black text-orange-500">{addOnCount} × $1</span>
+                </div>
+                <input type="range" min="0" max={upsellPkg.credits} value={addOnCount} onChange={e => setAddOnCount(parseInt(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-500" />
+                <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                  <span>0</span>
+                  <span>{upsellPkg.credits}</span>
+                </div>
+              </div>
+            )}
+
+            <button onClick={async () => {
+              const r = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ packageId: upsellPkg.id, email, promoCode: appliedPromo || undefined, addOnCredits: addOnCount || undefined }) });
+              const d = await r.json();
+              if (r.status === 409) { setShowUpsell(false); setShowCreditWarning(true); setAppliedPromo(''); setPromoError(d.error || 'Promo already used'); return; }
+              if (d.url) window.location.href = d.url;
+            }} className="w-full py-3 bg-[#1E3A8A] hover:bg-blue-900 text-white font-black rounded-xl text-lg transition-colors mb-2">
+              Pay ${upsellPkg.price + addOnCount} →
+            </button>
+
+            {addOnCount === 0 && upsellPkg.credits > 1 && (
+              <p className="text-center text-xs text-orange-500 font-medium mb-2">💡 Slide to add bonus credits at $1 each!</p>
+            )}
+
+            <button onClick={() => { setShowUpsell(false); setShowCreditWarning(true); }} className="w-full text-sm text-slate-500 hover:text-slate-700 py-1">← Back to packages</button>
+          </div>
+        </div>
+      )}
 
       {/* Report Modal */}
       <AnimatePresence>{showReportModal && (
