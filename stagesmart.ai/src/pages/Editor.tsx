@@ -357,7 +357,7 @@ export function Editor() {
   const handleReport = async () => {
     if (!reportIssueType || !reportRemedy) return; setReportSubmitting(true);
     try { const lbl = isOutdoor(roomType) ? activeToggles.join(', ') : (getIndoorOptions(roomType).find(o => o.id === selectedOption)?.label || selectedOption);
-      await fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, roomType, enhancementId: selectedOption || activeToggles.join('+'), enhancementLabel: lbl, tileIndex: selectedTile, issueType: reportIssueType, remedyRequested: reportRemedy, notes: reportNotes.trim() || undefined, originalImage: base64Image || undefined, resultImage: tileImages[selectedTile] || undefined }) });
+      await fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, roomType, enhancementId: selectedOption || activeToggles.join('+'), enhancementLabel: lbl, tileIndex: selectedTile, issueType: reportIssueType, remedyRequested: reportRemedy, notes: reportNotes.trim() || undefined }) });
       setReportSent(true); setShowReportModal(false); setReportNotes(''); setReportIssueType(''); setReportRemedy(''); setTimeout(() => setReportSent(false), 8000);
     } catch { setError('Failed to send report.'); } finally { setReportSubmitting(false); }
   };
