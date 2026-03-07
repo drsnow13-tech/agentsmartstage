@@ -43,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { packageId, email, promoCode } = req.body;
+  const { packageId, email, promoCode, addOnCredits } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required' });
 
   const emailLower = email.toLowerCase().trim();
@@ -91,25 +91,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const appUrl = process.env.APP_URL || 'https://www.smartstageagent.com';
 
+    // Validate add-on credits: max is same as pack size
+    const validAddOn = addOnCredits ? Math.min(Math.max(0, Math.floor(addOnCredits)), pkg.credits) : 0;
+    const totalCredits = pkg.credits + validAddOn;
+
+    const line_items: any[] = [{
+      price_data: {
+        currency: 'usd',
+        product_data: { name: pkg.name },
+        unit_amount: pkg.amount,
+      },
+      quantity: 1,
+    }];
+
+    if (validAddOn > 0) {
+      line_items.push({
+        price_data: {
+          currency: 'usd',
+          product_data: { name: `${validAddOn} Bonus Credits ($1 each)` },
+          unit_amount: 100, // $1 per credit
+        },
+        quantity: validAddOn,
+      });
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       customer_email: emailLower,
-      line_items: [{
-        price_data: {
-          currency: 'usd',
-          product_data: { name: pkg.name },
-          unit_amount: pkg.amount,
-        },
-        quantity: 1,
-      }],
+      line_items,
       mode: 'payment',
       success_url: `${appUrl}/editor?success=true&pkg=${packageId}`,
       cancel_url: `${appUrl}/editor?canceled=true`,
       metadata: {
-        credits: pkg.credits.toString(),
+        credits: totalCredits.toString(),
         packageId,
         email: emailLower,
         promoCode: appliedPromo || '',
+        addOnCredits: validAddOn.toString(),
       }
     });
 
@@ -119,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (appliedPromo) {
       try {
         const sql2 = neon(process.env.DATABASE_URL!);
-        await sql2`INSERT INTO promo_redemptions (code, email, credits_granted) VALUES (${appliedPromo}, ${emailLower}, ${pkg.credits}) ON CONFLICT (code, email) DO NOTHING`;
+        await sql2`INSERT INTO promo_redemptions (code, email, credits_granted) VALUES (${appliedPromo}, ${emailLower}, ${totalCredits}) ON CONFLICT (code, email) DO NOTHING`;
         await sql2`UPDATE promo_codes SET times_used = times_used + 1 WHERE code = ${appliedPromo}`;
       } catch (e) { console.error('Promo recording error:', e); }
     }
