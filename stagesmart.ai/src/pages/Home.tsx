@@ -23,7 +23,7 @@ export function Home() {
               <Wand2 className="w-5 h-5" /> Start Editing
             </Link>
           </div>
-          <p className="text-blue-300 text-sm mt-4">No login required · Photos not stored after 24 hours · MLS-ready results</p>
+          <p className="text-blue-300 text-sm mt-4">First photo free Â· No login required Â· Photos not stored after 24 hours Â· MLS-ready results</p>
         </div>
       </section>
 
@@ -33,12 +33,12 @@ export function Home() {
           <h2 className="text-3xl font-black text-slate-900 text-center mb-12">Everything Agents Need</h2>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { icon: '🌅', title: 'Virtual Twilight', desc: 'Golden hour sky and warm glowing windows — proven to get 3x more saves on Zillow' },
-              { icon: '🌿', title: 'Green the Grass', desc: 'Lush vibrant lawn year-round. No more brown Texas summers killing your curb appeal' },
-              { icon: '🛋️', title: 'Virtual Staging', desc: 'Fill empty rooms with warm, inviting furniture — living room, bedroom, game room, office and more' },
-              { icon: '☀️', title: 'Sky Swap', desc: 'Replace overcast skies with bright blue — every day looks like a perfect day' },
-              { icon: '✨', title: 'Declutter & Clean', desc: 'Remove furniture, personal items, and clutter for clean MLS-ready photos' },
-              { icon: '💡', title: 'Interior Lights', desc: 'Add warm glowing light through windows for an inviting, lived-in look' },
+              { icon: 'ð', title: 'Virtual Twilight', desc: 'Golden hour sky and warm glowing windows â agents report more saves and faster offers' },
+              { icon: 'ð¿', title: 'Green the Grass', desc: 'Lush vibrant lawn year-round. No more dead or patchy grass killing your curb appeal' },
+              { icon: 'ð', title: 'Virtual Staging', desc: 'Fill empty rooms with warm, inviting furniture â living room, bedroom, game room, office and more' },
+              { icon: 'âï¸', title: 'Sky Swap', desc: 'Replace overcast skies with bright blue â every day looks like a perfect day' },
+              { icon: 'â¨', title: 'Declutter & Clean', desc: 'Remove furniture, personal items, and clutter for clean MLS-ready photos' },
+              { icon: 'ð¡', title: 'Interior Lights', desc: 'Add warm glowing light through windows for an inviting, lived-in look' },
             ].map(f => (
               <div key={f.title} className="bg-white rounded-2xl p-6 border border-slate-200">
                 <div className="text-3xl mb-3">{f.icon}</div>
@@ -54,7 +54,7 @@ export function Home() {
       <section className="py-16 px-4 bg-white">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl font-black text-slate-900 mb-4">Simple Pricing</h2>
-          <p className="text-slate-500 mb-10">One credit = one photo batch. Select as many enhancements as you want per photo — all for one credit.</p>
+          <p className="text-slate-500 mb-10">One credit = one photo batch. Select as many enhancements as you want per photo â all for one credit.</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: '1 Photo', price: '$5', credits: '1 credit', popular: false },
