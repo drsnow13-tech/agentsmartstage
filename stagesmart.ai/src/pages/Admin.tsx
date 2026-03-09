@@ -4,7 +4,7 @@ import { cn } from '../lib/utils';
 type Tab = 'dashboard' | 'users' | 'promos' | 'reports';
 
 interface User { email: string; name: string | null; phone: string | null; credits: number; total_spent: number; total_generations: number; opted_in: boolean; created_at: string; last_active: string; }
-interface Promo { id: number; code: string; credits: number; price_cents: number; max_uses: number | null; times_used: number; expires_at: string | null; created_at: string; active: boolean; }
+interface Promo { id: number; code: string; credits: number; max_uses: number | null; times_used: number; expires_at: string | null; created_at: string; active: boolean; }
 interface Report { id: number; email: string; room_type: string; enhancement: string; issue_type: string; remedy: string; notes: string; status: string; admin_notes: string; created_at: string; }
 interface Stats { totalUsers: number; activeToday: number; activeWeek: number; totalCreditsHeld: number; pendingReports: number; recentUsers: any[]; }
 
@@ -34,7 +34,6 @@ export function Admin() {
   const [newPromoCode, setNewPromoCode] = useState('');
   const [newPromoCredits, setNewPromoCredits] = useState('');
   const [newPromoMaxUses, setNewPromoMaxUses] = useState('');
-  const [newPromoPrice, setNewPromoPrice] = useState('');
   const [reports, setReports] = useState<Report[]>([]);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 4000); };
@@ -76,9 +75,9 @@ export function Admin() {
   const handleCreatePromo = async () => {
     if (!newPromoCode || !newPromoCredits) return;
     try {
-      await api('create-promo', token, { code: newPromoCode, credits: parseInt(newPromoCredits), maxUses: newPromoMaxUses ? parseInt(newPromoMaxUses) : null, priceCents: newPromoPrice ? Math.round(parseFloat(newPromoPrice) * 100) : 0 });
+      await api('create-promo', token, { code: newPromoCode, credits: parseInt(newPromoCredits), maxUses: newPromoMaxUses ? parseInt(newPromoMaxUses) : null });
       showToast(`Promo code ${newPromoCode.toUpperCase()} created!`);
-      setNewPromoCode(''); setNewPromoCredits(''); setNewPromoMaxUses(''); setNewPromoPrice(''); loadTab('promos');
+      setNewPromoCode(''); setNewPromoCredits(''); setNewPromoMaxUses(''); loadTab('promos');
     } catch (e: any) { showToast(`Error: ${e.message}`); }
   };
   const handleTogglePromo = async (code: string, active: boolean) => { try { await api('toggle-promo', token, { code, active: !active }); loadTab('promos'); } catch (e: any) { showToast(`Error: ${e.message}`); } };
@@ -204,14 +203,12 @@ export function Admin() {
           <div>
             <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 20, marginBottom: 20 }}>
               <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Create Promo Code</h3>
-              <p style={{ margin: '0 0 12px', fontSize: 13, color: '#94a3b8' }}>Leave price blank for free codes. Set price for paid deals (e.g. LAUNCH20 = 20 credits for $20).</p>
+              <p style={{ margin: '0 0 12px', fontSize: 13, color: '#94a3b8' }}>Create promo codes for free credits. Discount pricing (e.g. LAUNCH20) is managed in checkout.ts.</p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <input value={newPromoCode} onChange={e => setNewPromoCode(e.target.value)} placeholder="Code (e.g. LAUNCH20)"
                   style={{ flex: 1, minWidth: 140, padding: '10px 14px', borderRadius: 10, border: '2px solid #334155', background: '#0f172a', color: '#f8fafc', fontSize: 14, outline: 'none', textTransform: 'uppercase' }} />
                 <input value={newPromoCredits} onChange={e => setNewPromoCredits(e.target.value)} placeholder="Credits" type="number"
                   style={{ width: 80, padding: '10px 14px', borderRadius: 10, border: '2px solid #334155', background: '#0f172a', color: '#f8fafc', fontSize: 14, outline: 'none' }} />
-                <input value={newPromoPrice} onChange={e => setNewPromoPrice(e.target.value)} placeholder="Price $ (0=free)" type="number" step="0.01"
-                  style={{ width: 120, padding: '10px 14px', borderRadius: 10, border: '2px solid #334155', background: '#0f172a', color: '#f8fafc', fontSize: 14, outline: 'none' }} />
                 <input value={newPromoMaxUses} onChange={e => setNewPromoMaxUses(e.target.value)} placeholder="Max uses (∞)" type="number"
                   style={{ width: 110, padding: '10px 14px', borderRadius: 10, border: '2px solid #334155', background: '#0f172a', color: '#f8fafc', fontSize: 14, outline: 'none' }} />
                 <button onClick={handleCreatePromo} style={{ padding: '10px 20px', borderRadius: 10, background: '#f97316', color: 'white', fontWeight: 700, border: 'none', cursor: 'pointer', fontSize: 14 }}>Create</button>
@@ -220,17 +217,13 @@ export function Admin() {
             <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', overflow: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead><tr style={{ borderBottom: '2px solid #334155' }}>
-                  {['Code', 'Credits', 'Price', 'Used / Max', 'Type', 'Status', 'Actions'].map(h => (<th key={h} style={{ padding: '12px 14px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, fontSize: 12, textTransform: 'uppercase' }}>{h}</th>))}
+                  {['Code', 'Credits', 'Used / Max', 'Status', 'Actions'].map(h => (<th key={h} style={{ padding: '12px 14px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, fontSize: 12, textTransform: 'uppercase' }}>{h}</th>))}
                 </tr></thead>
                 <tbody>{promos.map(p => (
                   <tr key={p.code} style={{ borderBottom: '1px solid #1e293b' }}>
                     <td style={{ padding: '10px 14px', fontWeight: 700, fontFamily: 'monospace', fontSize: 14, color: '#f97316' }}>{p.code}</td>
                     <td style={{ padding: '10px 14px' }}>{p.credits}</td>
-                    <td style={{ padding: '10px 14px', color: p.price_cents > 0 ? '#22c55e' : '#94a3b8' }}>{p.price_cents > 0 ? `$${(p.price_cents / 100).toFixed(2)}` : 'Free'}</td>
                     <td style={{ padding: '10px 14px' }}>{p.times_used} / {p.max_uses || '∞'}</td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: p.price_cents > 0 ? '#3b82f622' : '#22c55e22', color: p.price_cents > 0 ? '#3b82f6' : '#22c55e' }}>{p.price_cents > 0 ? 'Paid Deal' : 'Free Credits'}</span>
-                    </td>
                     <td style={{ padding: '10px 14px' }}>
                       <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: p.active ? '#22c55e22' : '#ef444422', color: p.active ? '#22c55e' : '#ef4444' }}>{p.active ? 'Active' : 'Disabled'}</span>
                     </td>
