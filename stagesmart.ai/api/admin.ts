@@ -56,6 +56,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         UNIQUE(code, email)
       )`;
 
+      // OTP verification codes
+      await sql`CREATE TABLE IF NOT EXISTS otp_codes (
+        id SERIAL PRIMARY KEY,
+        email TEXT NOT NULL,
+        code TEXT NOT NULL,
+        used BOOLEAN DEFAULT FALSE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )`;
+
       await sql`CREATE TABLE IF NOT EXISTS reports (
         id SERIAL PRIMARY KEY,
         email TEXT NOT NULL,
