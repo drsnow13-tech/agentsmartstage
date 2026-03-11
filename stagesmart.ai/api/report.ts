@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const adminResult = await resend.emails.send({
       from: 'StageSmart.ai <noreply@smartstageagent.com>',
       to: 'support@smartstageagent.com',
-      replyTo: email,
+      reply_to: email,
       subject: `Bad Result: ${issueType || 'Unknown'} — ${roomType || 'Unknown'} / ${enhancementLabel || enhancementId || 'Unknown'}`,
       html: `<div style="font-family:sans-serif;">
         <h2 style="color:#dc2626;">Bad Result Report</h2>
