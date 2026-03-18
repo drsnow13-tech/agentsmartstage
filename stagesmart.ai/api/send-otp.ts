@@ -25,22 +25,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await sql`INSERT INTO users (email, credits) VALUES (${emailLower}, 0) ON CONFLICT (email) DO NOTHING`;
 
     const resendKey = process.env.RESEND_API_KEY;
+
+    // Dev fallback — no key present
     if (!resendKey) {
       console.log('DEV OTP for ' + emailLower + ': ' + code);
       return res.json({ sent: true });
     }
 
-    const html = '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;"><h2 style="color:#1E3A8A;">Your verification code</h2><p style="color:#64748b;">Enter this code to access your SmartStageAgent credits. Expires in 10 minutes.</p><div style="background:#f1f5f9;border-radius:12px;padding:24px;text-align:center;margin:24px 0;"><span style="font-size:40px;font-weight:900;letter-spacing:12px;color:#1E3A8A;">' + code + '</span></div><p style="color:#94a3b8;font-size:12px;">If you did not request this, ignore this email.</p></div>';
+    const html = `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;">
+        <h2 style="color:#1E3A8A;">Your verification code</h2>
+        <p style="color:#64748b;">Enter this code to access your SmartStageAgent credits. Expires in 10 minutes.</p>
+        <div style="background:#f1f5f9;border-radius:12px;padding:24px;text-align:center;margin:24px 0;">
+          <span style="font-size:40px;font-weight:900;letter-spacing:12px;color:#1E3A8A;">${code}</span>
+        </div>
+        <p style="color:#94a3b8;font-size:12px;">If you did not request this, ignore this email.</p>
+      </div>
+    `;
 
-    await fetch('https://api.resend.com/emails', {
+    const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + resendKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'SmartStageAgent <noreply@smartstageagent.com>', to: email, subject: 'Your SmartStageAgent code: ' + code, html })
+      headers: {
+        'Authorization': 'Bearer ' + resendKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'SmartStageAgent <noreply@smartstageagent.com>',
+        to: email,
+        subject: 'Your SmartStageAgent code: ' + code,
+        html
+      })
     });
 
-    res.json({ sent: true });
+    // Actually check if Resend accepted the request
+    if (!resendRes.ok) {
+      const resendError = await resendRes.json();
+      console.error('Resend rejected email send:', resendError);
+      return res.status(500).json({ error: 'Failed to send verification code' });
+    }
+
+    return res.json({ sent: true });
+
   } catch (error) {
     console.error('Send OTP error:', error);
-    res.status(500).json({ error: 'Failed to send verification code' });
+    return res.status(500).json({ error: 'Failed to send verification code' });
   }
 }
